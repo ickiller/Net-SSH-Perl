@@ -55,6 +55,7 @@ sub CLOSE {
     unless ($h->{incoming}) {
         my $c = $h->{channel};
         my $ssh = $c->{ssh};
+        $c->drain_outgoing;
         $c->{istate} = CHAN_INPUT_WAIT_DRAIN;
         $c->send_eof;
         $c->{istate} = CHAN_INPUT_CLOSED;

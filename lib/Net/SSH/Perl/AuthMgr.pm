@@ -1,4 +1,4 @@
-# $Id: AuthMgr.pm,v 1.3 2001/06/05 00:55:39 btrott Exp $
+# $Id: AuthMgr.pm,v 1.4 2001/07/31 23:41:00 btrott Exp $
 
 package Net::SSH::Perl::AuthMgr;
 use strict;
@@ -10,6 +10,7 @@ use Net::SSH::Perl::Auth;
 use Net::SSH::Perl::Constants qw(
     SSH2_MSG_SERVICE_REQUEST
     SSH2_MSG_SERVICE_ACCEPT
+    SSH2_MSG_USERAUTH_BANNER
     SSH2_MSG_USERAUTH_REQUEST
     SSH2_MSG_USERAUTH_SUCCESS
     SSH2_MSG_USERAUTH_FAILURE );
@@ -72,6 +73,13 @@ sub authenticate {
     $amgr->register_handler(SSH2_MSG_USERAUTH_SUCCESS, sub {
         $valid++;
         $amgr->{_done}++
+    });
+    $amgr->register_handler(SSH2_MSG_USERAUTH_BANNER, sub {
+        my $amgr = shift;
+        my($packet) = @_;
+        if ($amgr->{ssh}->config->get('interactive')) {
+            print $packet->get_str, "\n";
+        }
     });
     $amgr->register_handler(SSH2_MSG_USERAUTH_FAILURE, \&auth_failure);
     $amgr->register_error(

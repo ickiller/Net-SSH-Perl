@@ -8,6 +8,7 @@ eg/pscp
 eg/pssh
 eg/pssh-keygen
 eg/remoteinteract.pl
+eg/remoteinteract2.pl
 lib/Net/SSH/Perl.pm
 lib/Net/SSH/Perl/Agent.pm
 lib/Net/SSH/Perl/Auth.pm

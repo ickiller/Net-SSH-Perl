@@ -1,4 +1,4 @@
-# $Id: ChannelMgr.pm,v 1.5 2001/06/06 05:07:37 btrott Exp $
+# $Id: ChannelMgr.pm,v 1.7 2001/08/07 18:19:31 btrott Exp $
 
 package Net::SSH::Perl::ChannelMgr;
 use strict;
@@ -83,6 +83,14 @@ sub process_input_packets {
         if ($c->delete_if_full_closed) {
             $cmgr->remove($c->{id});
         }
+    }
+}
+
+sub process_output_packets {
+    my $cmgr = shift;
+    for my $c (@{ $cmgr->{channels} }) {
+        next unless defined $c;
+        $c->process_outgoing;
     }
 }
 
@@ -181,6 +189,9 @@ sub input_window_adjust {
     croak "Received window adjust for non-open channel $id"
         unless $c && $c->{type} == SSH_CHANNEL_OPEN;
     $c->{remote_window} += $packet->get_int32;
+    if (my $sub = $c->{handlers}{$packet->type}{code}) {
+        $sub->($c, $packet);
+    }
 }
 
 sub register_handler {

@@ -1,4 +1,4 @@
-# $Id: Channel.pm,v 1.13 2001/07/11 21:57:26 btrott Exp $
+# $Id: Channel.pm,v 1.16 2001/08/07 18:19:31 btrott Exp $
 
 package Net::SSH::Perl::Channel;
 use strict;
@@ -69,10 +69,23 @@ sub request_start {
 sub send_data {
     my $c = shift;
     my($buf) = @_;
+    $c->{input}->append($buf);
+}
+
+sub process_outgoing {
+    my $c = shift;
+    return unless ($c->{istate} == CHAN_INPUT_OPEN ||
+                   $c->{istate} == CHAN_INPUT_WAIT_DRAIN) &&
+                  $c->{input}->length > 0;
+    my $len = $c->{input}->length;
+    $len = $c->{remote_window} if $len > $c->{remote_window};
+    $len = $c->{remote_maxpacket} if $len > $c->{remote_maxpacket};
+    my $data = $c->{input}->bytes(0, $len, '');
     my $packet = $c->{ssh}->packet_start(SSH2_MSG_CHANNEL_DATA);
     $packet->put_int32($c->{remote_id});
-    $packet->put_str($buf);
+    $packet->put_str($data);
     $packet->send;
+    $c->{remote_window} -= $len;
 }
 
 sub check_window {
@@ -105,9 +118,13 @@ sub prepare_for_select {
         if ($c->{output}->length > 0) {
             $wb->add($c->{wfd});
         }
-        elsif ($c->{ostate} == CHAN_OUTPUT_WAIT_DRAIN) {
+        elsif ($c->{ostate} == CHAN_OUTPUT_WAIT_DRAIN &&
+               $c->{extended}->length == 0) {
             $c->obuf_empty;
         }
+    }
+    if ($c->{efd} && $c->{extended}->length > 0) {
+        $wb->add($c->{efd});
     }
 }
 
@@ -162,6 +179,19 @@ sub obuf_empty {
     else {
         warn "channel $c->{id}: internal error: obuf_empty for ostate $c->{ostate}";
     }
+}
+
+sub drain_outgoing {
+    my $c = shift;
+    $c->register_handler(SSH2_MSG_CHANNEL_WINDOW_ADJUST, sub {
+        $_[0]->{ssh}->break_client_loop
+    });
+    while ($c->{input}->length) {
+        $c->process_outgoing;
+        $c->{ssh}->client_loop if $c->{input}->length;
+    }
+    $c->drop_handler(SSH2_MSG_CHANNEL_WINDOW_ADJUST);
+    $c->{ssh}->restore_client_loop;
 }
 
 sub shutdown_write {
@@ -257,6 +287,8 @@ sub register_handler {
     my($type, $sub, @extra) = @_;
     $c->{handlers}{$type} = { code => $sub, extra => \@extra };
 }
+
+sub drop_handler { delete $_[0]->{handlers}{$_[1]} }
 
 1;
 __END__

@@ -1,4 +1,4 @@
-# $Id: SSH2.pm,v 1.31 2001/07/11 21:57:26 btrott Exp $
+# $Id: SSH2.pm,v 1.33 2001/08/07 18:19:31 btrott Exp $
 
 package Net::SSH::Perl::SSH2;
 use strict;
@@ -7,7 +7,8 @@ use Net::SSH::Perl::Kex;
 use Net::SSH::Perl::ChannelMgr;
 use Net::SSH::Perl::Packet;
 use Net::SSH::Perl::Buffer;
-use Net::SSH::Perl::Constants qw( :protocol :msg2 );
+use Net::SSH::Perl::Constants qw( :protocol :msg2
+                                  CHAN_INPUT_CLOSED CHAN_INPUT_WAIT_DRAIN );
 use Net::SSH::Perl::Cipher;
 use Net::SSH::Perl::AuthMgr;
 use Net::SSH::Perl::Comp;
@@ -131,6 +132,15 @@ sub cmd {
         my $r_packet = $channel->request_start("exec", 0);
         $r_packet->put_str($cmd);
         $r_packet->send;
+
+        if ($stdin) {
+            $channel->send_data($stdin);
+
+            $channel->drain_outgoing;
+            $channel->{istate} = CHAN_INPUT_WAIT_DRAIN;
+            $channel->send_eof;
+            $channel->{istate} = CHAN_INPUT_CLOSED;
+        }
     });
 
     my($exit);
@@ -253,6 +263,7 @@ sub open2 {
 }
 
 sub break_client_loop { $_[0]->{_cl_quit_pending} = 1 }
+sub restore_client_loop { $_[0]->{_cl_quit_pending} = 0 }
 sub _quit_pending { $_[0]->{_cl_quit_pending} }
 
 sub client_loop {
@@ -273,6 +284,8 @@ sub client_loop {
             }
         }
         last if $ssh->_quit_pending;
+
+        $cmgr->process_output_packets;
 
         my $rb = IO::Select->new;
         my $wb = IO::Select->new;

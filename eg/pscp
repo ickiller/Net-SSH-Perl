@@ -1,5 +1,5 @@
 #!/usr/bin/perl -w
-# $Id: pscp,v 1.3 2001/02/22 00:14:48 btrott Exp $
+# $Id: pscp,v 1.5 2001/08/07 18:21:38 btrott Exp $
 
 use strict;
 
@@ -8,7 +8,7 @@ use Getopt::Std;
 use File::Basename;
 
 my %opts;
-getopts("c:l:P:vB", \%opts);
+getopts("c:l:P:vB21", \%opts);
 my($f1, $f2) = @ARGV;
 
 die "usage: pscp [options] f1 f2"
@@ -22,11 +22,15 @@ elsif ($f2 =~ /:/) {
     ($thost, $tfile) = split /:/, $f2, 2;
 }
 
-my $ssh = Net::SSH::Perl->new($fhost || $thost,
-    interactive => $opts{B} ? 0 : 1,
-    cipher => $opts{c},
-    port => $opts{P},
-    debug => $opts{v});
+my %args;
+$args{interactive} = $opts{B} ? 0 : 1;
+$args{cipher} = $opts{c};
+$args{port} = $opts{P};
+$args{debug} = $opts{v};
+$args{protocol} = 2 if $opts{2};
+$args{protocol} = 1 if $opts{1};
+
+my $ssh = Net::SSH::Perl->new($fhost || $thost, %args);
 $ssh->login($opts{l});
 
 if ($fhost && $ffile) {

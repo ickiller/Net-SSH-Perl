@@ -1,4 +1,4 @@
-# $Id: Packet.pm,v 1.19 2001/07/11 21:57:26 btrott Exp $
+# $Id: Packet.pm,v 1.20 2001/07/25 22:25:38 btrott Exp $
 
 package Net::SSH::Perl::Packet;
 
@@ -269,7 +269,7 @@ sub send_ssh1 {
     $output->put_chars($data);
 
     my $sock = $ssh->sock;
-    syswrite $sock, $output->bytes;
+    syswrite $sock, $output->bytes, $output->length;
 }
 
 sub send_ssh2 {
@@ -312,7 +312,7 @@ sub send_ssh2 {
     $ssh->{session}{seqnr_out}++;
 
     my $sock = $ssh->sock;
-    syswrite $sock, $output->bytes;
+    syswrite $sock, $output->bytes, $output->length;
 }
 
 sub type {

@@ -1,8 +1,31 @@
-$Id: Changes,v 1.69 2001/07/21 05:35:57 btrott Exp $
+$Id: Changes,v 1.76 2001/08/28 23:40:56 btrott Exp $
 
 Revision history for Net::SSH::Perl
 
-1.21
+1.22  2001.08.28
+    - Fixed bug with channel window sizes: Net::SSH::Perl in SSH-2 mode
+      was not respecting the server's channel window size, and was
+      sending data indiscriminately. It now buffers data to be sent and
+      sends it when the sshd has enough window space available. Thanks
+      to Megan Dorrah (and others) for the spot.
+    - Fix receiving STDERR in SSH-2 protocol. This was broken. Thanks to
+      Ulrich Scheid for the spot (and to Sagar Shah and Vicente J. Ruiz
+      Jurado for subsequent spots :).
+    - Added Channel::drain_outgoing, necessitated by the above fix to
+      window sizes; that fix meant that output buffers were not being
+      drained before EOF was sent on the channel. drain_outgoing must
+      now be called before EOF is sent; it continually sends outgoing
+      data, and checks for increased window sizes, until there is no more
+      data to send. This will be done automatically, of course.
+    - Display SSH-2 BANNER messages during authentication if the session
+      is interactive.
+    - Net::SSH::Perl::Packet now uses the third argument to syswrite
+      (LENGTH). This was necessary to make the module work in Perl
+      5.005_2, apparently. Thanks to Brian Carpenter for the spot.
+    - Added -2 and -1 options (SSH-2 and SSH-1, respectively) to
+      eg/pscp.
+
+1.21  2001.07.18
     - Fixed Handle::SSH(?:1|2)::WRITE when sending large amounts of data,
       ie. data larger than the max packet size. Now we break up data
       into chunks of 32000 bytes, then send each in turn. Thanks to
