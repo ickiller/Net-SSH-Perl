@@ -1,6 +1,15 @@
-$Id: Changes,v 1.49 2001/05/14 07:52:37 btrott Exp $
+$Id: Changes,v 1.50 2001/05/15 06:36:55 btrott Exp $
 
 Revision history for Net::SSH::Perl
+
+1.13  2001.05.14
+    - Added Channel::check_window method to check the local "window"
+      size of a channel object. Channels manage how much data they
+      receive using the window, and the sshd refuses to send more
+      data than is available in the window. We need to send an
+      adjust message to increase the size of the window,
+      periodically. Found this bug through working with Net::SFTP
+      (thanks to Matt Good for the initial spot).
 
 1.12  2001.05.13
     - Added ChannelMgr::register_handler to set handlers for

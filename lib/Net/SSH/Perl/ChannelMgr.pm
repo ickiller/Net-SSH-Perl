@@ -1,4 +1,4 @@
-# $Id: ChannelMgr.pm,v 1.3 2001/05/12 05:58:31 btrott Exp $
+# $Id: ChannelMgr.pm,v 1.4 2001/05/15 06:26:03 btrott Exp $
 
 package Net::SSH::Perl::ChannelMgr;
 use strict;
@@ -79,6 +79,7 @@ sub process_input_packets {
     for my $c (@{ $cmgr->{channels} }) {
         next unless defined $c;
         $c->process_buffers(@_);
+        $c->check_window;
         if ($c->delete_if_full_closed) {
             $cmgr->remove($c->{id});
         }
@@ -107,6 +108,7 @@ sub input_data {
     my $c = $cmgr->_get_channel_from_packet($packet, 'data');
     return unless $c->{type} == SSH_CHANNEL_OPEN;
     my $data = $packet->get_str;
+    $c->{local_window} -= length $data;
     $c->{output}->append($data);
 }
 

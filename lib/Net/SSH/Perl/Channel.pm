@@ -1,4 +1,4 @@
-# $Id: Channel.pm,v 1.8 2001/04/24 23:23:43 btrott Exp $
+# $Id: Channel.pm,v 1.9 2001/05/15 06:26:03 btrott Exp $
 
 package Net::SSH::Perl::Channel;
 use strict;
@@ -28,6 +28,8 @@ sub init {
     $c->{istate} = CHAN_INPUT_OPEN;
     $c->{flags} = 0;
     $c->{remote_window} = 0;
+    $c->{local_window_max} = $c->{local_window};
+    $c->{local_consumed} = 0;
 }
 
 sub open {
@@ -69,6 +71,22 @@ sub send_data {
     $packet->send;
 }
 
+sub check_window {
+    my $c = shift;
+    if ($c->{type} == SSH_CHANNEL_OPEN &&
+       !($c->{flags} & (CHAN_CLOSE_SENT | CHAN_CLOSE_RCVD)) &&
+       $c->{local_window} < $c->{local_window_max}/2 &&
+       $c->{local_consumed} > 0) {
+        my $packet = $c->{ssh}->packet_start(SSH2_MSG_CHANNEL_WINDOW_ADJUST);
+        $packet->put_int32($c->{remote_id});
+        $packet->put_int32($c->{local_consumed});
+        $packet->send;
+        $c->{ssh}->debug("channel $c->{id}: window $c->{local_window} sent adjust $c->{local_consumed}");
+        $c->{local_window} += $c->{local_consumed};
+        $c->{local_consumed} = 0;
+    }
+}
+
 sub prepare_for_select {
     my $c = shift;
     my($rb, $wb) = @_;
@@ -102,6 +120,8 @@ sub process_buffers {
             else {
                 #warn "No handler for '$buf' buffer set up";
             }
+            $c->{local_consumed} += $c->{$buf}->length
+                if $buf eq "output";
             $c->{$buf}->empty;
         }
     }
