@@ -1,4 +1,4 @@
-# $Id: Makefile.PL,v 1.9 2001/02/22 00:08:43 btrott Exp $
+# $Id: Makefile.PL,v 1.10 2001/03/01 08:38:14 btrott Exp $
 
 use ExtUtils::MakeMaker qw(prompt WriteMakefile);
 use strict;
@@ -74,7 +74,7 @@ WriteMakefile(
     DISTNAME => 'Net-SSH-Perl',
     VERSION_FROM => 'lib/Net/SSH/Perl.pm',
     PREREQ_PM    => \%prereq,
-    AUTHOR => 'Benjamin Trott <btrott@ignitiondesign.com>',
+    AUTHOR => 'Benjamin Trott <ben@rhumba.pair.com>',
     ABSTRACT => 'Perl client Interface to SSH',
 );
 

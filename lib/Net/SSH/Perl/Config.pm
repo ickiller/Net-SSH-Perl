@@ -1,4 +1,4 @@
-# $Id: Config.pm,v 1.4 2001/02/28 22:14:06 btrott Exp $
+# $Id: Config.pm,v 1.6 2001/03/03 05:43:12 btrott Exp $
 
 package Net::SSH::Perl::Config;
 use strict;
@@ -9,6 +9,8 @@ use vars qw( %DIRECTIVES );
     Host                    => [ \&_host ],
     BatchMode               => [ \&_batch_mode ],
     Cipher                  => [ \&_set_str, 'cipher' ],
+    Compression             => [ \&_set_yesno, 'compression' ],
+    CompressionLevel        => [ \&_set_str, 'compression_level' ],
     GlobalKnownHostsFile    => [ \&_set_str, 'global_known_hosts' ],
     HostName                => [ \&_set_str, 'hostname' ],
     IdentityFile            => [ \&_identity_file ],

@@ -1,11 +1,8 @@
-$Id: ToDo,v 1.9 2001/02/24 00:47:10 btrott Exp $
+$Id: ToDo,v 1.10 2001/03/03 06:50:37 btrott Exp $
 
 Is there any way to use Rhosts-RSA auth without running as root?
 
 Add more tests to the test suite.
-
-Allow users to register handlers for specific packet types for
-use in the client loop.
 
 Can we run multiple commands in the same SSH session? Perhaps open
 up a shell on the remote machine?

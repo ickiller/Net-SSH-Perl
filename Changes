@@ -1,13 +1,19 @@
-$Id: Changes,v 1.7 2001/02/24 00:18:01 btrott Exp $
+$Id: Changes,v 1.9 2001/03/03 06:42:12 btrott Exp $
 
 Revision history for Net::SSH::Perl
 
-0.53
+0.60  2001.03.02
+    - added compression support, along with Compression and
+      CompressionLevel config directives, and docs
+    - added ability to register handlers for specific packet
+      types read during the client loop
+
+0.53  2001.02.28
     - added Net::SSH::Perl::Config; reads ssh config files
       and merges constructor options with config options
     - updated DESCRIPTION for Net::SSH::Perl
 
-0.52  Wed Feb 21 20:27:01 2001
+0.52  2001.02.21
     - added ability to specify RSA identity files; defaults
       to "$ENV{HOME}/.ssh/identity"
     - Blowfish cipher will try to use Crypt::Blowfish_PP if
@@ -18,10 +24,10 @@ Revision history for Net::SSH::Perl
     - sorted out common sections between Net::SSH::Perl POD
       and README
 
-0.51  Tue Feb 20 22:43:15 2001
+0.51  2001.02.20
     - Blowfish support has now been added.
 
-0.50  Mon Feb 5 13:52:02 2001
+0.50  2001.02.19
     - moved my Net::SSH libraries into the Net::SSH::Perl
       namespace; hooked up the main Net::SSH interface lib.
     - added ssh and issh wrappers around OO methods.
@@ -37,7 +43,7 @@ Revision history for Net::SSH::Perl
       caveat that they only work when running as root
       and on a privileged port.
 
-0.03  Fri Jan 19 17:52:34 2001
+0.03  2001.01.19
     - integrated modified CBC and CFB ciphers into distribution;
       no more reliance on Crypt::CFB and Crypt::CBC
     - improved cipher checking; added list of ciphers supported
@@ -54,7 +60,7 @@ Revision history for Net::SSH::Perl
     - moved utility routines into Net::SSH::Util.
     - changed Net::SSH::Constants to use Exporter.
 
-0.02  Thu Jan 18 14:39:15 2001
+0.02  2001.01.18
     - added DES and 3DES ciphers
     - more host key support: adds new host keys to user host key file
     - checked for unsupported Net::SSH::Buffer methods in AUTOLOAD
@@ -62,5 +68,5 @@ Revision history for Net::SSH::Perl
     - can now specify cipher via new method
     - checks against server's supported cipher list
 
-0.01  Wed Jan 10 14:45:19 2001
+0.01  2001.01.10
     - original version; created by h2xs 1.19

@@ -1,4 +1,4 @@
-# $Id: 03-packet.t,v 1.4 2001/02/28 22:30:37 btrott Exp $
+# $Id: 03-packet.t,v 1.5 2001/03/02 08:59:14 btrott Exp $
 
 use strict;
 
@@ -13,7 +13,8 @@ my $ssh = Net::SSH::Perl->new("dummy");
 my $packet;
 
 ## Okay, so you shouldn't ever be doing this,
-## in real usage...
+## in real usage; override the socket with a
+## special tied filehandle.
 tie *FH, 'StringThing';
 $ssh->{session}{sock} = \*FH;
 

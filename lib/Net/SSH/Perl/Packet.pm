@@ -1,4 +1,4 @@
-# $Id: Packet.pm,v 1.5 2001/02/24 07:07:17 btrott Exp $
+# $Id: Packet.pm,v 1.6 2001/03/03 05:32:08 btrott Exp $
 
 package Net::SSH::Perl::Packet;
 
@@ -66,9 +66,27 @@ sub read {
     $ssh->fatal_disconnect("Corrupted check bytes on input")
         unless $crc == $stored_crc;
 
-    my $type = unpack "c", $buffer->bytes(0, 1, "");
     $buffer->bytes(-4, 4, "");  ## Cut off checksum.
 
+    if ($ssh->compression) {
+        my $i = $ssh->receive_compression;
+        my($inflated, $err);
+        {
+            my($out);
+            ($out, $err) = $i->inflate($buffer->bytes);
+            last unless $err == Compress::Zlib::Z_OK();
+
+            $inflated = $out;
+        }
+        unless (defined $inflated) {
+            $ssh->fatal_disconnect("Error while inflating: $err");
+        }
+    
+        $buffer->empty;
+        $buffer->append($inflated);
+    }
+
+    my $type = unpack "c", $buffer->bytes(0, 1, "");
     if ($type == SSH_MSG_DISCONNECT) {
         croak sprintf "Received disconnect message: %s\n", $buffer->get_str;
     }
@@ -98,16 +116,37 @@ sub read_expect {
 sub send {
     my $pack = shift;
     my $buffer = shift || $pack->{data};
+    my $ssh = $pack->{ssh};
 
     if ($buffer->length >= MAX_PACKET_SIZE - 30) {
-        $pack->{ssh}->fatal_disconnect(sprintf
+        $ssh->fatal_disconnect(sprintf
             "Sending too big a packet: size %d, limit %d",
             $buffer->length, MAX_PACKET_SIZE);
     }
 
+    if (my $level = $ssh->compression) {
+        my $d = $ssh->send_compression;
+        my($compressed, $err);
+        {
+            my($output, $out);
+            ($output, $err) = $d->deflate($buffer->bytes);
+            last unless $err == Compress::Zlib::Z_OK();
+            ($out, $err) = $d->flush(Compress::Zlib::Z_PARTIAL_FLUSH());
+            last unless $err == Compress::Zlib::Z_OK();
+
+            $compressed = $output . $out;
+        }
+        unless (defined $compressed) {
+            $ssh->fatal_disconnect("Error while compressing: $err");
+        }
+    
+        $buffer->empty;
+        $buffer->append($compressed);
+    }
+
     my $len = $buffer->length + 4;
 
-    my $cipher = $pack->{ssh}->send_cipher;
+    my $cipher = $ssh->send_cipher;
     #if ($cipher) {
         $buffer->insert_padding;
     #}
@@ -117,11 +156,10 @@ sub send {
 
     my $output = Net::SSH::Perl::Buffer->new;
     $output->put_int32($len);
-    my $data = $cipher ?
-        $cipher->encrypt($buffer->bytes) : $buffer->bytes;
+    my $data = $cipher ? $cipher->encrypt($buffer->bytes) : $buffer->bytes;
     $output->put_chars($data);
 
-    my $sock = $pack->{ssh}->sock;
+    my $sock = $ssh->sock;
     syswrite $sock, $output->bytes;
 }
 

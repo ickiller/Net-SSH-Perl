@@ -1,5 +1,5 @@
 #!/usr/bin/perl -w
-# $Id: pssh,v 1.4 2001/02/22 04:38:58 btrott Exp $
+# $Id: pssh,v 1.5 2001/03/03 05:51:41 btrott Exp $
 
 use strict;
 
@@ -7,18 +7,20 @@ use Net::SSH::Perl;
 use Getopt::Long;
 
 my %opts;
-GetOptions(\%opts, "c=s", "l=s", "p=i", "i=s@", "v");
+GetOptions(\%opts, "c=s", "l=s", "p=i", "i=s@", "v", "C");
 my($host, $cmd) = @ARGV;
 
 die "usage: pssh [options] hostname command"
     unless $host && $cmd;
 
-my $ssh = Net::SSH::Perl->new($host,
-    interactive => 1,
-    cipher => $opts{c},
-    port => $opts{p},
-    debug => $opts{v},
-    identity_files => $opts{i} || []);
+my %args = (interactive => 1);
+$args{compression} = 1 if $opts{C};
+$args{cipher} = $opts{c} if $opts{c};
+$args{port} = $opts{p} if $opts{p};
+$args{debug} = 1 if $opts{v};
+$args{identity_files} = $opts{i} if $opts{i};
+
+my $ssh = Net::SSH::Perl->new($host, %args);
 $ssh->login($opts{l});
 my($out, $err, $exit) = $ssh->cmd($cmd);
 print $out;

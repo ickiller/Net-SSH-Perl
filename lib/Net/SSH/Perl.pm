@@ -1,4 +1,4 @@
-# $Id: Perl.pm,v 1.24 2001/02/26 17:36:47 btrott Exp $
+# $Id: Perl.pm,v 1.27 2001/03/03 06:48:26 btrott Exp $
 
 package Net::SSH::Perl;
 use strict;
@@ -16,7 +16,7 @@ use Socket;
 use Symbol;
 use Math::GMP;
 
-$VERSION = "0.53";
+$VERSION = "0.60";
 
 sub new {
     my $class = shift;
@@ -339,6 +339,32 @@ sub _login {
     }
 }
 
+sub compression {
+    my $ssh = shift;
+    if (@_) {
+        my $level = shift;
+        $ssh->debug("Enabling compression at level $level.");
+        $ssh->{session}{compression} = $level;
+
+        my($err);
+        ($ssh->{session}{send_compression}, $err) =
+            Compress::Zlib::deflateInit({ Level => $level });
+        $ssh->fatal_disconnect("Can't create outgoing compression stream")
+            unless $err == Compress::Zlib::Z_OK();
+
+        ($ssh->{session}{receive_compression}, $err) =
+            Compress::Zlib::inflateInit();
+        $ssh->fatal_disconnect("Can't create incoming compression stream")
+            unless $err == Compress::Zlib::Z_OK();
+    }
+    $ssh->{session}{compression};
+}
+
+sub send_compression { $_[0]->{session}{send_compression} }
+sub receive_compression { $_[0]->{session}{receive_compression} }
+
+sub register_handler { $_[0]->{client_handlers}{$_[1]} = $_[2] }
+
 sub cmd {
     my $ssh = shift;
     my $cmd = shift;
@@ -346,6 +372,28 @@ sub cmd {
 
     $ssh->_connect;
     $ssh->fatal_disconnect("Permission denied") unless $ssh->_login;
+
+    if ($ssh->{config}->get('compression')) {
+        eval { require Compress::Zlib; };
+        if ($@) {
+            $ssh->debug("Compression is disabled because Compress::Zlib can't be loaded.");
+        }
+        else {
+            my $level = $ssh->{config}->get('compression_level') || 6;
+            $ssh->debug("Requesting compression at level $level.");
+            my $packet = $ssh->packet_start(SSH_CMSG_REQUEST_COMPRESSION);
+            $packet->put_int32($level);
+            $packet->send;
+
+            $packet = Net::SSH::Perl::Packet->read($ssh);
+            if ($packet->type == SSH_SMSG_SUCCESS) {
+                $ssh->compression($level);
+            }
+            else {
+                $ssh->debug("Warning: Remote host refused compression.");
+            }
+        }
+    }
 
     my($packet);
 
@@ -365,8 +413,9 @@ sub cmd {
         $packet->send;
     }
 
+    my $h = $ssh->{client_handlers};
+
     my($stdout, $stderr, $exit);
-    my $h = {};
     $h->{+SSH_SMSG_STDOUT_DATA} ||= sub { $stdout .= $_[1]->get_str };
     $h->{+SSH_SMSG_STDERR_DATA} ||= sub { $stderr .= $_[1]->get_str };
     $h->{+SSH_SMSG_EXITSTATUS}  ||= sub { $exit    = $_[1]->get_int32 };
@@ -535,6 +584,28 @@ file.
 If you don't provide this, RSA authentication defaults to using
 "$ENV{HOME}/.ssh/identity".
 
+=item * compression
+
+If set to a true value, compression is turned on for the session
+(assuming that the server supports it).
+
+Compression is off by default.
+
+Note that compression requires that you have the I<Compress::Zlib>
+module installed on your system. If the module can't be loaded
+successfully, compression is disabled; you'll receive a warning
+stating as much if you having debugging on (I<debug> set to 1),
+and you try to turn on compression.
+
+=item * compression_level
+
+Specifies the compression level to use if compression is enabled
+(note that you must provide both the I<compression> and
+I<compression_level> arguments to set the level; providing only
+this argument will not turn on encryption).
+
+The default value is 6.
+
 =back
 
 =head2 $ssh->login([ $user [, $password ] ])
@@ -580,6 +651,55 @@ again.
 
 This is less than ideal, obviously. Future version of
 I<Net::SSH::Perl> may find ways around that.
+
+=head2 $ssh->register_handler($packet_type, $subref)
+
+Registers an anonymous subroutine handler I<$subref> to handle
+packets of type I<$packet_type> during the client loop. The
+client loop is entered after the client has sent a command
+to the remote server, and after any STDIN data has been sent;
+it consists of reading packets from the server (STDOUT
+packets, STDERR packets, etc.) until the server sends the exit
+status of the command executed remotely. At this point the client
+exits the client loop and disconnects from the server.
+
+When you call the I<cmd> method, the client loop by default
+simply sticks STDOUT packets into a scalar variable and returns
+that value to the caller. It does the same for STDERR packets,
+and for the process exit status. (See the docs for I<cmd>).
+
+You can, however, override that default behavior, and instead
+process the packets yourself as they come in. You do this by
+calling the I<register_handler> method and giving it a
+packet type I<$packet_type> and a subroutine reference
+I<$subref>. Your subroutine will receive as arguments the
+I<Net::SSH::Perl> object (with an open connection to the sshd),
+and a I<Net::SSH::Perl::Packet> object, which represents the
+packet read from the server.
+
+I<$packet_type> should be an integer constant; you can import
+the list of constants into your namespace by explicitly loading
+the I<Net::SSH::Perl::Constants> module:
+
+    use Net::SSH::Perl::Constants qw( :msg );
+
+This will load all of the I<MSG> constants into your namespace
+so that you can use them when registering the handler. To do
+that, use this method. For example:
+
+    $ssh->register_handler(SSH_SMSG_STDOUT_DATA, sub {
+        my($ssh, $packet) = @_;
+        print "I received this: ", $packet->get_str;
+    });
+
+To learn about the methods that you can call on the packet object,
+take a look at the I<Net::SSH::Perl::Packet> docs, as well as the
+I<Net::SSH::Perl::Buffer> docs (the I<get_*> and I<put_*> methods).
+
+Obviously, writing these handlers requires some knowledge of the
+contents of each packet. For that, read through the SSH RFC, which
+explains each packet type in detail. There's a I<get_*> method for
+each datatype that you may need to read from a packet.
 
 =head1 ADVANCED METHODS
 
@@ -648,6 +768,34 @@ If it's not defined, encryption is not turned on for the session.
 NOTE: the send and receive ciphers and two I<different> objects,
 each with its own internal state (initialization vector, in
 particular). Thus they cannot be interchanged.
+
+=head2 $ssh->compression([ $level ])
+
+Without arguments, returns the current compression level for the
+session. If given an argument I<$level>, sets the compression level
+and turns on compression for the session.
+
+Note that this should I<not> be used to turn compression off. In fact,
+I don't think there's a way to turn compression off. But in other
+words, don't try giving this method a value of 0 and expect that to
+turn off compression. It won't.
+
+If the return value of this method is undefined or 0, compression
+is turned off.
+
+=head2 $ssh->send_compression
+
+Returns the "send" compression object/stream. This is a
+I<Compress::Zlib> deflation (compression) stream; we keep it around
+because it contains state that needs to be used throughout the
+session.
+
+=head2 $ssh->receive_compression
+
+Returns the "receive" compression object/stream. This is a
+I<Compress::Zlib> inflation (uncompression) stream; we keep it
+around because it contains state that needs to be used throughout
+the session.
 
 =head2 $ssh->session_key
 
