@@ -1,4 +1,4 @@
-# $Id: RSA1.pm,v 1.12 2001/05/10 23:50:01 btrott Exp $
+# $Id: RSA1.pm,v 1.13 2001/06/27 22:49:55 btrott Exp $
 
 package Net::SSH::Perl::Key::RSA1;
 use strict;
@@ -26,7 +26,40 @@ sub init {
 
 sub size { $_[0]->{rsa}{bits} }
 
-sub keygen { die "RSA key generation is unimplemented" }
+sub keygen {
+    my $class = shift;
+    my($bits) = @_;
+
+    eval {
+        require Crypt::RSA;
+        require Crypt::RSA::DataFormat;
+        Crypt::RSA::DataFormat->import('bitsize');
+    };
+    if ($@) {
+        croak "rsa1 key generation is unavailable without Crypt::RSA";
+    }
+    my $gmp = sub { Math::GMP->new("$_[0]") };
+
+    my $rsa = Crypt::RSA->new;
+    my $key = $class->new;
+    my($pub, $priv) = $rsa->keygen(
+                     Size      => $bits,
+                     Password  => 'ssh',
+                     Verbosity => 1,
+                     Identity  => 'Net::SSH::Perl',
+          );
+    die $rsa->errstr unless $pub && $priv;
+
+    $key->{rsa}{e} = $gmp->($pub->e);
+    $key->{rsa}{n} = $gmp->($pub->n);
+    $key->{rsa}{bits} = $gmp->(bitsize($pub->n));
+    $key->{rsa}{d} = $gmp->($priv->d);
+    $key->{rsa}{u} = $gmp->($priv->u);
+    $key->{rsa}{p} = $gmp->($priv->p);
+    $key->{rsa}{q} = $gmp->($priv->q);
+
+    $key;
+}
 
 sub read_private {
     my $class = shift;

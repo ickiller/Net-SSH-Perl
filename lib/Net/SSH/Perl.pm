@@ -1,4 +1,4 @@
-# $Id: Perl.pm,v 1.95 2001/06/26 23:48:33 btrott Exp $
+# $Id: Perl.pm,v 1.97 2001/06/28 00:35:27 btrott Exp $
 
 package Net::SSH::Perl;
 use strict;
@@ -22,7 +22,7 @@ eval {
     $HOSTNAME = hostname();
 };
 
-$VERSION = "1.17";
+$VERSION = "1.18";
 
 sub VERSION { $VERSION }
 
@@ -102,6 +102,10 @@ sub _init {
     my $sys_config  = delete $arg{sys_config}  || "/etc/ssh_config";
 
     my $directives = delete $arg{options} || [];
+
+    if (my $proto = delete $arg{protocol}) {
+        push @$directives, "Protocol $proto";
+    }
 
     my $cfg = Net::SSH::Perl::Config->new($ssh->{host}, %arg);
     $ssh->{config} = $cfg;

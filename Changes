@@ -1,6 +1,16 @@
-$Id: Changes,v 1.63 2001/06/26 23:47:38 btrott Exp $
+$Id: Changes,v 1.64 2001/06/28 00:35:25 btrott Exp $
 
 Revision history for Net::SSH::Perl
+
+1.18
+    - Fixed bug with 'protocol' arg to Net::SSH::Perl constructor.
+      Protocol flag was not getting run through the Config object, which
+      meant it wasn't getting turned into a bitmask and staying as '1,2'.
+      Symptom was 'Protocol major versions differ: 1 vs. 1' or something
+      such. Thanks to Mark Ethan Trostler for the spot.
+    - Added key generation for RSA SSH-1 keys. Requires Crypt::RSA
+      to implement the actual generation of key data. Thanks to
+      Rob J for the idea.
 
 1.17  2001.06.26
     - Added (experimental) open2 method, which returns 2 tied
