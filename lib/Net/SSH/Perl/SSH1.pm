@@ -1,4 +1,4 @@
-# $Id: SSH1.pm,v 1.14 2001/06/20 22:46:41 btrott Exp $
+# $Id: SSH1.pm,v 1.16 2001/07/03 07:04:52 btrott Exp $
 
 package Net::SSH::Perl::SSH1;
 use strict;
@@ -37,7 +37,7 @@ sub _proto_init {
         $ssh->{config}->set('identity_files', [ "$ENV{HOME}/.ssh/identity" ]);
     }
 
-    for my $a (qw( password rhosts rhosts_rsa rsa )) {
+    for my $a (qw( password rhosts rhosts_rsa rsa ch_res )) {
         $ssh->{config}->set("auth_$a", 1)
             unless defined $ssh->{config}->get("auth_$a");
     }
@@ -302,13 +302,23 @@ sub open2 {
 
     require Net::SSH::Perl::Handle::SSH1;
 
+    unless ($cmd) {
+        $ssh->{config}->set('use_pty', 1)
+            unless defined $ssh->{config}->get('use_pty');
+    }
     $ssh->_setup_connection;
-    my($packet);
 
-    $ssh->debug("Sending command: $cmd");
-    $packet = $ssh->packet_start(SSH_CMSG_EXEC_CMD);
-    $packet->put_str($cmd);
-    $packet->send;
+    if ($cmd) {
+        $ssh->debug("Sending command: $cmd");
+        my $packet = $ssh->packet_start(SSH_CMSG_EXEC_CMD);
+        $packet->put_str($cmd);
+        $packet->send;
+    }
+    else {
+        $ssh->debug("Requesting shell.");
+        my $packet = $ssh->packet_start(SSH_CMSG_EXEC_SHELL);
+        $packet->send;
+    }
 
     my($exit);
     $ssh->register_handler(SSH_SMSG_EXITSTATUS,

@@ -1,4 +1,4 @@
-# $Id: Auth.pm,v 1.7 2001/05/31 08:56:18 btrott Exp $
+# $Id: Auth.pm,v 1.8 2001/07/03 07:04:52 btrott Exp $
 
 package Net::SSH::Perl::Auth;
 
@@ -12,7 +12,7 @@ BEGIN {
         RSA          => 2,
         Password     => 3,
         Rhosts_RSA   => 4,
-        TIS          => 5,
+        ChallengeResponse => 5,
         Kerberos     => 6,
         Kerberos_TGT => 7,
     );

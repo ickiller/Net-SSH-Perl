@@ -1,4 +1,4 @@
-# $Id: Constants.pm,v 1.22 2001/05/31 17:20:42 btrott Exp $
+# $Id: Constants.pm,v 1.23 2001/07/03 07:04:52 btrott Exp $
 
 package Net::SSH::Perl::Constants;
 use strict;
@@ -38,6 +38,9 @@ use vars qw( %CONSTANTS );
     'SSH_CMSG_AUTH_RHOSTS_RSA' => 35,
     'SSH_MSG_DEBUG' => 36,
     'SSH_CMSG_REQUEST_COMPRESSION' => 37,
+    'SSH_CMSG_AUTH_TIS' => 39,
+    'SSH_SMSG_AUTH_TIS_CHALLENGE' => 40,
+    'SSH_CMSG_AUTH_TIS_RESPONSE' => 41,
 
     'SSH_COMPAT_BUG_SIGBLOB' => 0x01,
     'SSH_COMPAT_BUG_PUBKEYAUTH' => 0x02,

@@ -1,4 +1,4 @@
-# $Id: Config.pm,v 1.16 2001/05/11 01:39:37 btrott Exp $
+# $Id: Config.pm,v 1.17 2001/07/03 07:04:34 btrott Exp $
 
 package Net::SSH::Perl::Config;
 use strict;
@@ -10,6 +10,7 @@ use Carp qw( croak );
 %DIRECTIVES = (
     Host                    => [ \&_host ],
     BatchMode               => [ \&_batch_mode ],
+    ChallengeResponseAuthentication => [ \&_set_str, 'auth_ch_res' ],
     Cipher                  => [ \&_cipher ],
     Ciphers                 => [ \&_set_str, 'ciphers' ],
     Compression             => [ \&_set_yesno, 'compression' ],

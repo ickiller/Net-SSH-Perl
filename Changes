@@ -1,8 +1,17 @@
-$Id: Changes,v 1.64 2001/06/28 00:35:25 btrott Exp $
+$Id: Changes,v 1.66 2001/07/04 20:42:46 btrott Exp $
 
 Revision history for Net::SSH::Perl
 
-1.18
+1.19  2001.07.04
+    - open2 interface now works with a shell, not just with running a
+      remote command. This allows you to open up some sort of shell
+      (Unix or otherwise) and talk to it directly, programatically.
+      Thanks to Rob J for the idea.
+    - Added Auth::ChallengeResponse, a generic SSH-1 challenge
+      response authentication mechanism; this works for TIS, s/key,
+      and other such mechanisms. Thanks to Surya Koneru for the idea.
+
+1.18  2001.06.27
     - Fixed bug with 'protocol' arg to Net::SSH::Perl constructor.
       Protocol flag was not getting run through the Config object, which
       meant it wasn't getting turned into a bitmask and staying as '1,2'.
