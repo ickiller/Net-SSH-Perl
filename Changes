@@ -1,8 +1,35 @@
-$Id: Changes,v 1.53 2001/05/25 00:02:50 btrott Exp $
+$Id: Changes,v 1.59 2001/06/04 07:17:52 btrott Exp $
 
 Revision history for Net::SSH::Perl
 
-1.14  2001.05.15
+1.15  2001.06.03
+    - Agent authentication is now supported for both SSH-1 and
+      SSH-2 (SSH-2 agent is compatible with OpenSSH ssh-agent).
+    - Added Net::SSH::Perl::Agent, which provides a client
+      interface to an authentication agent.
+    - Added IO::Socket as a prereq (for Net::SSH::Perl::Agent).
+    - Abstracted out authentication management for SSH-2 login
+      to Net::SSH::Perl::AuthMgr class. Holds authentication
+      context and state during authentication negotiation and
+      setup, and dispatches to appropriate functions based on
+      packet types.
+    - KeyBoardInt auth now uses new AuthMgr::register_handler
+      method.
+    - pssh-keygen now changes permissions of private key file
+      to 0600 on key generation.
+    - Fixed bug where pssh-keygen RSA key generation was
+      incompatible with OpenSSL (ie. OpenSSH); Crypt::RSA uses
+      ipmq (inverse of p mod q), and OpenSSL uses iqmp
+      (inverse of q mod p). So we now explicitly force
+      generation of iqmp when writing private key files.
+    - Key::RSA::keygen no longer forces generation of CRT
+      (Chinese Remainder Theorem) members, because Crypt::RSA
+      now does this itself on key generation.
+    - Net::SSH::Perl::Packet::read_poll now handles IGNORE
+      messages, as well as handling DISCONNECT and DEBUG messages
+      more intelligently (depending on protocol version).
+
+1.14  2001.05.24
     - Added keyboard-interactive authentication (only usable in
       an interactive session).
     - Fixed Net::SSH::Perl::Key, which was unconditionally pulling

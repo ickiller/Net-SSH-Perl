@@ -1,4 +1,4 @@
-# $Id: RSA.pm,v 1.11 2001/04/17 01:05:10 btrott Exp $
+# $Id: RSA.pm,v 1.14 2001/05/31 18:57:49 btrott Exp $
 
 package Net::SSH::Perl::Auth::RSA;
 
@@ -13,6 +13,7 @@ use Net::SSH::Perl::Constants qw(
 
 use Net::SSH::Perl::Util qw( :rsa :authfile _read_passphrase );
 use Net::SSH::Perl::Packet;
+use Net::SSH::Perl::Agent;
 use Net::SSH::Perl::Auth;
 use base qw( Net::SSH::Perl::Auth );
 
@@ -29,10 +30,74 @@ sub authenticate {
     $ssh->debug("RSA authentication is disabled by the client."), return
         unless $ssh->config->get('auth_rsa');
 
+    return 1 if $auth->_try_agent;
+
     my $if = $ssh->config->get('identity_files') || [];
     for my $f (@$if) {
         return 1 if $auth->_authenticate($f);
     }
+}
+
+sub _try_agent {
+    my $auth = shift;
+    my $ssh = $auth->{ssh};
+    return unless my $agent = Net::SSH::Perl::Agent->new(1);
+
+    my $iter = $agent->identity_iterator;
+    while(my($key, $comment) = $iter->()) {;
+        $ssh->debug("Trying RSA authentication via agent with '$comment'");
+        $ssh->debug("Server refused our key."), next unless
+            my $packet = $auth->_server_likes_key($key);
+
+        my $challenge = $packet->get_mp_int;
+        $ssh->debug("Received RSA challenge from server.");
+        my $response;
+        unless ($response = $agent->decrypt($key, $challenge, $ssh->session_id)) {
+            $ssh->debug("Authentication agent failed to decrypt challenge.");
+            $response = "\0" x 16;
+        }
+        $ssh->debug("Sending response to RSA challenge.");
+        $packet = $ssh->packet_start(SSH_CMSG_AUTH_RSA_RESPONSE);
+        $packet->put_chars($response);
+        $packet->send;
+
+        $packet = Net::SSH::Perl::Packet->read($ssh);
+        if ($packet->type == SSH_SMSG_SUCCESS) {
+            $agent->close_socket;
+            $ssh->debug("RSA authentication accepted by server.");
+            return 1;
+        }
+        elsif ($packet->type != SSH_SMSG_FAILURE) {
+            $ssh->fatal_disconnect("Protocol error waiting RSA auth response");
+        }
+    }
+    $agent->close_socket;
+    $ssh->debug("RSA authentication using agent refused.");
+
+    return 0;
+}
+
+sub _server_likes_key {
+    my $auth = shift;
+    my($key) = @_;
+    my $ssh = $auth->{ssh};
+
+    my $packet = $ssh->packet_start(SSH_CMSG_AUTH_RSA);
+    $packet->put_mp_int($key->{rsa}{n});
+    $packet->send;
+
+    $packet = Net::SSH::Perl::Packet->read($ssh);
+    my $type = $packet->type;
+    if ($type == SSH_SMSG_FAILURE) {
+        $ssh->debug("Server refused our key.");
+        return 0;
+    }
+
+    if ($type != SSH_SMSG_AUTH_RSA_CHALLENGE) {
+        $ssh->fatal_disconnect("Protocol error during RSA authentication: $type");
+    }
+
+    $packet;
 }
 
 sub _authenticate {
@@ -49,20 +114,8 @@ sub _authenticate {
 
     $ssh->debug("Trying RSA authentication with key '$comment'");
 
-    $packet = $ssh->packet_start(SSH_CMSG_AUTH_RSA);
-    $packet->put_mp_int($public_key->{rsa}{n});
-    $packet->send;
-
-    $packet = Net::SSH::Perl::Packet->read($ssh);
-    my $type = $packet->type;
-    if ($type == SSH_SMSG_FAILURE) {
-        $ssh->debug("Server refused our key.");
-        return 0;
-    }
-
-    if ($type != SSH_SMSG_AUTH_RSA_CHALLENGE) {
-        $ssh->fatal_disconnect("Protocol error during RSA authentication: $type");
-    }
+    $ssh->debug("Server refused our key."), return unless
+        $packet = $auth->_server_likes_key($public_key);
 
     my $challenge = $packet->get_mp_int;
     $ssh->debug("Received RSA challenge from server.");
@@ -96,7 +149,7 @@ sub _authenticate {
     _respond_to_rsa_challenge($ssh, $challenge, $private_key);
 
     $packet = Net::SSH::Perl::Packet->read($ssh);
-    $type = $packet->type;
+    my $type = $packet->type;
     if ($type == SSH_SMSG_SUCCESS) {
         $ssh->debug("RSA authentication accepted by server.");
         return 1;
@@ -132,12 +185,26 @@ authentication module needs to proceed. In this case, for
 example, the I<$ssh> object might contain a list of RSA
 identity files (see the docs for I<Net::SSH::Perl>).
 
-The I<authenticate> method tries to load the user's public
-and private keys, for each of the files listed as identity
-files. If you haven't listed any identity files,
-F<$ENV{HOME}/.ssh/identity> is used by default. For each
-identity, I<authenticate> enters into a dialog with the sshd
-server.
+The I<authenticate> method first tries to establish a connection
+to an authentication agent. If the connection attempt is successful,
+the client loops through the identities returned from the agent,
+and tries each identity/key against the server. The client enters
+into a dialog with the server. The client sends the public portion
+of the key returned from the agent. The server responds, telling the
+client whether the key is authorized for authentication; if the
+key is authorized, the server sends an RSA challenge encrypted with
+the user's public key. The client then asks the agent to decrypt the
+challenge using the private portion of the key, and sends back its
+response. If the response is correct, the client is authenticated
+successfully.
+
+If the client cannot connect to the authentication agent, or if none
+of the identities returned from the agent successfully authenticate
+the user, I<authenticate> then loops through each of the files listed
+as identity files (see the I<Net::SSH::Perl> constructor). If no
+identity files are explicitly listed, F<$ENV{HOME}/.ssh/identity>
+is used as a default. For each identity, the client enters into
+a dialog with the sshd server.
 
 The client sends the public key to the server, then waits for
 a challenge. Once this challenge is received, the client must

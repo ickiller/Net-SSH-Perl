@@ -1,4 +1,4 @@
-# $Id: Perl.pm,v 1.87 2001/05/16 01:56:45 btrott Exp $
+# $Id: Perl.pm,v 1.90 2001/06/04 07:17:53 btrott Exp $
 
 package Net::SSH::Perl;
 use strict;
@@ -22,7 +22,7 @@ eval {
     $HOSTNAME = hostname();
 };
 
-$VERSION = "1.14";
+$VERSION = "1.15";
 
 sub VERSION { $VERSION }
 
@@ -377,8 +377,9 @@ Net::SSH::Perl - Perl client Interface to SSH
 
 =head1 DESCRIPTION
 
-I<Net::SSH::Perl> is an all-Perl module implementing an SSH client.
-It is compatible with both the SSH1 and SSH2 protocols.
+I<Net::SSH::Perl> is an all-Perl module implementing an SSH
+(Secure Shell) client. It is compatible with both the SSH1 and
+SSH2 protocols.
 
 I<Net::SSH::Perl> enables you to simply and securely execute commands
 on remote machines, and receive the STDOUT, STDERR, and exit status

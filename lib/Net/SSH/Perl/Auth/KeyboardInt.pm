@@ -1,4 +1,4 @@
-# $Id: KeyboardInt.pm,v 1.3 2001/05/25 00:01:57 btrott Exp $
+# $Id: KeyboardInt.pm,v 1.4 2001/05/31 17:18:13 btrott Exp $
 
 package Net::SSH::Perl::Auth::KeyboardInt;
 
@@ -44,27 +44,25 @@ sub authenticate {
     $packet->put_str("");   ## devices
     $packet->send;
 
-    $packet = Net::SSH::Perl::Packet->read($ssh);
-    return if $packet->type == SSH2_MSG_USERAUTH_FAILURE;
-    croak sprintf "Protocol error: expected %d, got %d",
-        SSH2_MSG_USERAUTH_INFO_REQUEST, $packet->type
-        unless $packet->type == SSH2_MSG_USERAUTH_INFO_REQUEST;
+    $auth->mgr->register_handler(SSH2_MSG_USERAUTH_INFO_REQUEST, sub {
+        my $amgr = shift;
+        my($packet) = @_;
+        my $name = $packet->get_str;
+        my $instructions = $packet->get_str;
+        $packet->get_str;    ## language
 
-    my $name = $packet->get_str;
-    my $instructions = $packet->get_str;
-    $packet->get_str;    ## language
+        print $name, "\n" if $name;
+        print $instructions, "\n" if $instructions;
 
-    print $name, "\n" if $name;
-    print $instructions, "\n" if $instructions;
-
-    my $prompts = $packet->get_int32;
-    my $pres = $ssh->packet_start(SSH2_MSG_USERAUTH_INFO_RESPONSE);
-    $pres->put_int32($prompts);
-    for (1..$prompts) {
-        my $res = _prompt($packet->get_str, undef, $packet->get_int8);
-        $pres->put_str($res);
-    }
-    $pres->send;
+        my $prompts = $packet->get_int32;
+        my $pres = $ssh->packet_start(SSH2_MSG_USERAUTH_INFO_RESPONSE);
+        $pres->put_int32($prompts);
+        for (1..$prompts) {
+            my $res = _prompt($packet->get_str, undef, $packet->get_int8);
+            $pres->put_str($res);
+        }
+        $pres->send;
+    });
 
     return 1;
 }

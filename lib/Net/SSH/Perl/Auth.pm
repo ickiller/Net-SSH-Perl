@@ -1,4 +1,4 @@
-# $Id: Auth.pm,v 1.6 2001/04/17 06:16:34 btrott Exp $
+# $Id: Auth.pm,v 1.7 2001/05/31 08:56:18 btrott Exp $
 
 package Net::SSH::Perl::Auth;
 
@@ -36,6 +36,13 @@ sub new {
     (my $lib = $auth_class . ".pm") =~ s!::!/!g;
     require $lib;
     $auth_class->new(@_);
+}
+
+## For SSH2: mgr is Net::SSH::Perl::AuthMgr object.
+sub mgr {
+    my $auth = shift;
+    $auth->{mgr} = shift if @_;
+    $auth->{mgr};
 }
 
 sub id {

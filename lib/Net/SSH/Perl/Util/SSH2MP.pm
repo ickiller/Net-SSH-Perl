@@ -1,9 +1,9 @@
-# $Id: SSH2MP.pm,v 1.2 2001/05/13 22:10:14 btrott Exp $
+# $Id: SSH2MP.pm,v 1.3 2001/06/03 23:40:32 btrott Exp $
 
 package Net::SSH::Perl::Util::SSH2MP;
 use strict;
 
-use Math::Pari qw( PARI floor pari2num );
+use Math::Pari qw( PARI floor pari2num Mod lift );
 
 sub bitsize {
     return pari2num(floor(Math::Pari::log($_[0])/Math::Pari::log(2)) + 1);
@@ -38,6 +38,12 @@ sub mp2bin {
     $res = "\0" x ($l-length($res)) . $res
         if length($res) < $l;
     $res;
+}
+
+sub mod_inverse {
+    my($a, $n) = @_;
+    my $m = Mod(1, $n);
+    lift($m / $a);
 }
 
 1;

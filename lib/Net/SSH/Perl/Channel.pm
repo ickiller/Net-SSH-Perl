@@ -1,4 +1,4 @@
-# $Id: Channel.pm,v 1.9 2001/05/15 06:26:03 btrott Exp $
+# $Id: Channel.pm,v 1.10 2001/05/31 09:04:10 btrott Exp $
 
 package Net::SSH::Perl::Channel;
 use strict;
@@ -35,7 +35,7 @@ sub init {
 sub open {
     my $c = shift;
     my $ssh = $c->{ssh};
-    $ssh->debug("Sending CHANNEL_OPEN for channel " . $c->{id});
+    $ssh->debug("Requesting channel_open for channel $c->{id}.");
     my $packet = $ssh->packet_start(SSH2_MSG_CHANNEL_OPEN);
     $packet->put_str($c->{ctype});
     $packet->put_int32($c->{id});
@@ -54,7 +54,7 @@ sub request_start {
     my $c = shift;
     my($service, $want_reply) = @_;
     my $ssh = $c->{ssh};
-    $ssh->debug("Requesting service $service on channel $c->{id}");
+    $ssh->debug("Requesting service $service on channel $c->{id}.");
     my $packet = $ssh->packet_start(SSH2_MSG_CHANNEL_REQUEST);
     $packet->put_int32($c->{remote_id});
     $packet->put_str($service);

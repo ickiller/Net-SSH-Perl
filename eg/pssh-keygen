@@ -1,5 +1,5 @@
 #!/usr/bin/perl -w
-# $Id: pssh-keygen,v 1.9 2001/05/11 00:54:00 btrott Exp $
+# $Id: pssh-keygen,v 1.10 2001/06/03 23:44:04 btrott Exp $
 
 use strict;
 
@@ -127,6 +127,7 @@ else {
     }
 
     $key->write_private($keyfile, $pass);
+    chmod 0600, $keyfile or die "Can't chmod $keyfile to 0600: $!";
     debug("Your identification has been saved in $keyfile.");
 
     my $pub = write_public($keyfile, $key);

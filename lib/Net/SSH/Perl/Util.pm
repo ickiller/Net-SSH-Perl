@@ -1,4 +1,4 @@
-# $Id: Util.pm,v 1.26 2001/05/24 23:59:42 btrott Exp $
+# $Id: Util.pm,v 1.27 2001/06/03 23:40:31 btrott Exp $
 
 package Net::SSH::Perl::Util;
 use strict;
@@ -17,6 +17,7 @@ use vars qw( @EXPORT_OK %FUNC_TO_MOD %EXPORT_TAGS );
     bitsize
     bin2mp
     mp2bin
+    mod_inverse
     _respond_to_rsa_challenge
     _rsa_public_encrypt
     _rsa_private_decrypt
@@ -30,7 +31,7 @@ use vars qw( @EXPORT_OK %FUNC_TO_MOD %EXPORT_TAGS );
     rsa      => [ qw( _rsa_public_encrypt _rsa_private_decrypt
                       _respond_to_rsa_challenge ) ],
     ssh1mp   => [ qw( _compute_session_id _mp_linearize ) ],
-    ssh2mp   => [ qw( bitsize bin2mp mp2bin ) ],
+    ssh2mp   => [ qw( bitsize bin2mp mp2bin mod_inverse ) ],
     authfile => [ qw( _load_public_key _load_private_key _save_private_key ) ],
     all      => [ @EXPORT_OK ],
 );
@@ -47,6 +48,7 @@ use vars qw( @EXPORT_OK %FUNC_TO_MOD %EXPORT_TAGS );
     bitsize                   => 'SSH2MP',
     bin2mp                    => 'SSH2MP',
     mp2bin                    => 'SSH2MP',
+    mod_inverse               => 'SSH2MP',
     _respond_to_rsa_challenge => 'RSA',
     _rsa_public_encrypt       => 'RSA',
     _rsa_private_decrypt      => 'RSA',

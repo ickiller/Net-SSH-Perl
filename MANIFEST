@@ -9,6 +9,7 @@ eg/pssh
 eg/pssh-keygen
 eg/remoteinteract.pl
 lib/Net/SSH/Perl.pm
+lib/Net/SSH/Perl/Agent.pm
 lib/Net/SSH/Perl/Auth.pm
 lib/Net/SSH/Perl/Auth/KeyboardInt.pm
 lib/Net/SSH/Perl/Auth/Password.pm
@@ -16,6 +17,7 @@ lib/Net/SSH/Perl/Auth/PublicKey.pm
 lib/Net/SSH/Perl/Auth/RSA.pm
 lib/Net/SSH/Perl/Auth/Rhosts.pm
 lib/Net/SSH/Perl/Auth/Rhosts_RSA.pm
+lib/Net/SSH/Perl/AuthMgr.pm
 lib/Net/SSH/Perl/Buffer.pm
 lib/Net/SSH/Perl/Channel.pm
 lib/Net/SSH/Perl/ChannelMgr.pm

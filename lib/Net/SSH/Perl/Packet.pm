@@ -1,4 +1,4 @@
-# $Id: Packet.pm,v 1.16 2001/04/17 06:15:37 btrott Exp $
+# $Id: Packet.pm,v 1.17 2001/06/03 22:24:36 btrott Exp $
 
 package Net::SSH::Perl::Packet;
 
@@ -12,6 +12,10 @@ use Net::SSH::Perl::Constants qw(
     :protocol
     SSH_MSG_DISCONNECT
     SSH_MSG_DEBUG
+    SSH_MSG_IGNORE
+    SSH2_MSG_DISCONNECT
+    SSH2_MSG_DEBUG
+    SSH2_MSG_IGNORE
     MAX_PACKET_SIZE );
 use Net::SSH::Perl::Buffer;
 
@@ -58,20 +62,38 @@ sub read_poll {
     my $class = shift;
     my $ssh = shift;
 
-    my $packet = $ssh->protocol == PROTOCOL_SSH2 ?
-        $class->read_poll_ssh2($ssh) : $class->read_poll_ssh1($ssh);
-    return if !$packet;
+    my($packet, $debug, $ignore);
+    if ($ssh->protocol == PROTOCOL_SSH2) {
+        $packet = $class->read_poll_ssh2($ssh);
+        ($debug, $ignore) = (SSH2_MSG_DEBUG, SSH2_MSG_IGNORE);
+    }
+    else {
+        $packet = $class->read_poll_ssh1($ssh);
+	($debug, $ignore) = (SSH_MSG_DEBUG, SSH_MSG_IGNORE);
+    }
+    return unless $packet;
 
     my $type = $packet->type;
-    if ($type == SSH_MSG_DISCONNECT) {
-        croak sprintf "Received disconnect message: %s\n", $packet->get_str;
+    if ($ssh->protocol == PROTOCOL_SSH2) {   ## Handle DISCONNECT msg
+        if ($type == SSH2_MSG_DISCONNECT) {
+            $packet->get_int32;   ## reason
+            croak "Received disconnect message: ", $packet->get_str, "\n";
+        }
     }
-    elsif ($type == SSH_MSG_DEBUG) {
-        $ssh->debug(sprintf "Remote: %s", $packet->get_str);
-        return $class->read($ssh);
+    else {
+        if ($type == SSH_MSG_DISCONNECT) {
+            croak "Received disconnect message: ", $packet->get_str, "\n";
+        }
     }
 
-    $packet;
+    if ($type == $debug) {
+        $ssh->debug("Remote: " . $packet->get_str);
+    }
+    elsif ($type == $ignore) { }
+    else {
+        return $packet;
+    }
+    return;
 }
 
 sub read_poll_ssh1 {

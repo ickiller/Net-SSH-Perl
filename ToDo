@@ -1,4 +1,4 @@
-$Id: ToDo,v 1.17 2001/05/11 18:55:47 btrott Exp $
+$Id: ToDo,v 1.18 2001/06/03 23:42:17 btrott Exp $
 
 Add more tests to the test suite; add SSH2 tests.
 
@@ -13,9 +13,6 @@ Switch over to using Crypt::RSA for SSH1 RSA implementation?
 SSH2 RSA keys now use Crypt::RSA; at this point it might just
 be too much extra baggage to try to force people to use
 Crypt::RSA, because it has so many prereqs.
-
-Fix RSA key generation--currently compatible with Net::SSH::Perl,
-but not with OpenSSH.
 
 Switch completely to Math::Pari? Worthwhile? Again, don't
 want existing SSH1 users to have to switch.

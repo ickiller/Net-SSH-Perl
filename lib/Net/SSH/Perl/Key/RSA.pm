@@ -1,4 +1,4 @@
-# $Id: RSA.pm,v 1.5 2001/05/24 23:57:09 btrott Exp $
+# $Id: RSA.pm,v 1.7 2001/06/03 23:40:20 btrott Exp $
 
 package Net::SSH::Perl::Key::RSA;
 use strict;
@@ -81,7 +81,11 @@ sub read_private {
     for my $m (qw( n e )) {
         $key->{rsa_pub}->$m( $pkey->{RSAPrivateKey}->{$m} );
     }
-    for my $m (qw( n d p q dp dq qinv )) {
+    ## Don't use iqmp from the keyfile; let Crypt::RSA compute
+    ## it on its own, because the parameters in Crypt::RSA CRT
+    ## differ from those in OpenSSL, and we need to use ipmq,
+    ## not iqmp.
+    for my $m (qw( n d p q dp dq )) {
         $key->{rsa_priv}->$m( $pkey->{RSAPrivateKey}->{$m} );
     }
 
@@ -92,25 +96,20 @@ sub write_private {
     my $key = shift;
     my($key_file, $passphrase) = @_;
 
-    ## Force generation of dp, dq, and qinv (used in Chinese
-    ## Remainder Theorem, not generated automatically).
-    unless ($key->{rsa_priv}->dp && $key->{rsa_priv}->dq &&
-            $key->{rsa_priv}->qinv) {
-        my $primitives = Crypt::RSA::Primitives->new;
-        $primitives->core_decrypt(
-                       Key        => $key->{rsa_priv},
-                       Cyphertext => int rand 5000
-              );
-    }
-
     my $pem = $key->_pem;
     my $pkey = { RSAPrivateKey => { } };
 
     $pkey->{RSAPrivateKey}->{version} = 0;
     $pkey->{RSAPrivateKey}->{e} = $key->{rsa_pub}->e;
-    for my $m (qw( n d p q dp dq qinv )) {
+    for my $m (qw( n d p q dp dq )) {
         $pkey->{RSAPrivateKey}->{$m} = $key->{rsa_priv}->$m();
     }
+
+    ## Force generation of 'iqmp', which is inverse of q mod p.
+    ## Crypt::RSA calculates ipmq (inverse of p mod q), which is
+    ## incompatible with OpenSSL.
+    $pkey->{RSAPrivateKey}->{iqmp} =
+        mod_inverse($key->{rsa_priv}->q, $key->{rsa_priv}->p);
 
     unless ($pem->write(
                     Filename => $key_file,
@@ -136,7 +135,7 @@ sub _pem {
                       q INTEGER,
                       dp INTEGER,
                       dq INTEGER,
-                      qinv INTEGER
+                      iqmp INTEGER
                   }
            ));
         $pem->asn->configure( decode => { bigint => 'Math::Pari' },

@@ -1,4 +1,4 @@
-# $Id: Makefile.PL,v 1.20 2001/05/11 07:03:46 btrott Exp $
+# $Id: Makefile.PL,v 1.21 2001/06/03 22:30:33 btrott Exp $
 
 use ExtUtils::MakeMaker qw( prompt WriteMakefile );
 use strict;
@@ -8,6 +8,7 @@ my %BASE_PREREQS = (
         'String::CRC32'     => '1.2',
         'Math::GMP'         => '1.04',
         'Digest::MD5'       => 0,
+        'IO::Socket'        => 0,
     },
 
     2 => {
@@ -20,6 +21,7 @@ my %BASE_PREREQS = (
         'Math::Pari'        => '2.001804',
         'MIME::Base64'      => 0,
         'Convert::PEM'      => '0.05',
+        'IO::Socket'        => 0,
     },
 );
 

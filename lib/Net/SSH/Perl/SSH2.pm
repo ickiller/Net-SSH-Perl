@@ -1,4 +1,4 @@
-# $Id: SSH2.pm,v 1.26 2001/05/24 07:22:00 btrott Exp $
+# $Id: SSH2.pm,v 1.27 2001/05/31 08:55:51 btrott Exp $
 
 package Net::SSH::Perl::SSH2;
 use strict;
@@ -9,7 +9,7 @@ use Net::SSH::Perl::Packet;
 use Net::SSH::Perl::Buffer qw( SSH2 );
 use Net::SSH::Perl::Constants qw( :protocol :msg2 );
 use Net::SSH::Perl::Cipher;
-use Net::SSH::Perl::Auth;
+use Net::SSH::Perl::AuthMgr;
 use Net::SSH::Perl::Comp;
 use Net::SSH::Perl::Util qw( :hosts );
 
@@ -79,67 +79,12 @@ sub login {
 
 sub _login {
     my $ssh = shift;
-    my $user = $ssh->{config}->get('user');
 
     my $kex = Net::SSH::Perl::Kex->new($ssh);
     $kex->exchange;
 
-    $ssh->debug("Sending request for user-authentication service.");
-    my $packet = $ssh->packet_start(SSH2_MSG_SERVICE_REQUEST);
-    $packet->put_str("ssh-userauth");
-    $packet->send;
-
-    $packet = Net::SSH::Perl::Packet->read($ssh);
-    croak "denied SSH2_MSG_SERVICE_ACCEPT: ", $packet->type
-        unless $packet->type == SSH2_MSG_SERVICE_ACCEPT;
-    $ssh->debug("Service accepted: " . $packet->get_str . ".");
-
-    $ssh->debug("Trying empty user-authentication request.");
-    $packet = $ssh->packet_start(SSH2_MSG_USERAUTH_REQUEST);
-    $packet->put_str($user);
-    $packet->put_str("ssh-connection");
-    $packet->put_str("none");
-    $packet->send;
-
-    my $valid = 0;
-    my %auth_map = (password => 'Password', publickey => 'PublicKey',
-                    'keyboard-interactive' => 'KeyboardInt');
-    my(%tried, %auth);
-    while (!$valid) {
-        $packet = Net::SSH::Perl::Packet->read($ssh);
-        $valid = 1, last
-            if $packet->type == SSH2_MSG_USERAUTH_SUCCESS;
-        croak "userauth error: bad message during authentication"
-            unless $packet->type == SSH2_MSG_USERAUTH_FAILURE;
-
-        my $authlist = $packet->get_str;
-        my $partial = $packet->get_int8;
-        $ssh->debug("Authentication methods that can continue: $authlist.");
-
-        my($auth, $found);
-        for my $meth ( split /,/, $authlist ) {
-            $found = 0;
-            next if !exists $auth_map{$meth};
-            $auth = $auth{$meth};
-            if (!$auth) {
-                $auth = $auth{$meth} =
-                    Net::SSH::Perl::Auth->new($auth_map{$meth}, $ssh);
-            }
-            next unless $auth->enabled;
-            $ssh->debug("Next method to try is $meth.");
-            $found++;
-            if ($auth->authenticate($tried{$meth}++)) {
-                last;
-            }
-            else {
-                $auth->enabled(0);
-                $found = 0;
-            }
-        }
-        last unless $found;
-    }
-
-    $valid;
+    my $amgr = Net::SSH::Perl::AuthMgr->new($ssh);
+    $amgr->authenticate;
 }
 
 sub _session_channel {

@@ -1,4 +1,4 @@
-# $Id: PublicKey.pm,v 1.13 2001/05/08 07:04:59 btrott Exp $
+# $Id: PublicKey.pm,v 1.17 2001/05/31 18:52:35 btrott Exp $
 
 package Net::SSH::Perl::Auth::PublicKey;
 
@@ -6,7 +6,9 @@ use strict;
 
 use Net::SSH::Perl::Constants qw(
     SSH2_MSG_USERAUTH_REQUEST
-    SSH_COMPAT_OLD_SESSIONID );
+    SSH2_MSG_USERAUTH_PK_OK
+    SSH_COMPAT_OLD_SESSIONID
+    SSH_COMPAT_BUG_PKAUTH );
 
 use Net::SSH::Perl::Util qw( _read_passphrase );
 use Net::SSH::Perl::Buffer;
@@ -31,17 +33,40 @@ sub enabled {
 
 sub authenticate {
     my $auth = shift;
-    my $try = shift || 0;
     my $ssh = $auth->{ssh};
 
+    my $sent = 0;
+    if (my $agent = $auth->mgr->agent) {
+        do {
+            $sent = $auth->_auth_agent;
+        } until $sent || $agent->num_left <= 0;
+    }
+    return $sent if $sent;
+
     my $if = $ssh->config->get('identity_files') || [];
-    for my $f (@$if[$try..$#$if]) {
-        return 1 if $auth->_authenticate($f);
+    my $idx = $auth->{_identity_idx} || 0;
+    for my $f (@$if[$idx..$#$if]) {
+        $auth->{_identity_idx}++;
+        return 1 if $auth->_auth_identity($f);
     }
 }
 
-sub _authenticate {
-    my($auth, $auth_file) = @_;
+sub _auth_agent {
+    my $auth = shift;
+    my $agent = $auth->mgr->agent;
+
+    my($iter);
+    $iter = $auth->{_identity_iter} = $agent->identity_iterator
+        unless $iter = $auth->{_identity_iter};
+    my($key, $comment) = $iter->();
+    return unless $key;
+    $auth->{ssh}->debug("Publickey: testing agent key '$comment'");
+    $auth->_test_pubkey($key, \&agent_sign);
+}
+
+sub _auth_identity {
+    my $auth = shift;
+    my($auth_file) = @_;
     my $ssh = $auth->{ssh};
     my($packet);
 
@@ -69,6 +94,18 @@ sub _authenticate {
         }
     }
 
+    $auth->_sign_send_pubkey($key, \&key_sign);
+}
+
+sub agent_sign { $_[0]->mgr->agent->sign($_[1], $_[2]) }
+sub key_sign { $_[1]->sign($_[2]) }
+
+sub _sign_send_pubkey {
+    my $auth = shift;
+    my($key, $cb) = @_;
+    my $ssh = $auth->{ssh};
+    my($packet);
+
     my $b = Net::SSH::Perl::Buffer->new;
     if ($ssh->{datafellows} & SSH_COMPAT_OLD_SESSIONID) {
         $b->append($ssh->session_id);
@@ -86,14 +123,60 @@ sub _authenticate {
     $b->put_str( $key->ssh_name );
     $b->put_str( $key->as_blob );
 
-    my $sigblob = $key->sign($b->bytes);
+    my $sigblob = $cb->($auth, $key, $b->bytes);
+    $ssh->debug("Signature generation failed for public key."), return
+        unless $sigblob;
     $b->put_str($sigblob);
 
-    ## Get rid of session ID and packet type.
-    $b->bytes(0, $skip, '');
+    $b->bytes(0, $skip, '');   ## Get rid of session ID and packet type.
 
     $packet = $ssh->packet_start(SSH2_MSG_USERAUTH_REQUEST);
     $packet->append($b->bytes);
+    $packet->send;
+
+    return 1;
+}
+
+sub _test_pubkey {
+    my $auth = shift;
+    my($key, $cb) = @_;
+    my $ssh = $auth->{ssh};
+
+    my $blob = $key->as_blob;
+
+    ## Set up PK_OK callback; closure on $auth, $key, and $cb.
+    $auth->mgr->register_handler(SSH2_MSG_USERAUTH_PK_OK, sub {
+        my $amgr = shift;
+        my($packet) = @_;
+        my $ssh = $amgr->{ssh};
+        my $alg = $packet->get_str;
+        my $blob = $packet->get_str;
+
+        $ssh->debug("PK_OK received without existing key state."), return
+            unless $key && $cb;
+
+        my $s_key = Net::SSH::Perl::Key->new_from_blob($blob);
+        $ssh->debug("Failed extracting key from blob, pkalgorithm is '$alg'"),
+            return unless $s_key;
+        $ssh->debug("PK_OK key != saved state key"), return
+            unless $s_key->equal($key);
+
+        $ssh->debug("Public key is accepted, signing data.");
+        $ssh->debug("Key fingerprint: " . $key->fingerprint);
+        my $sent = $auth->_sign_send_pubkey($s_key, $cb);
+        $amgr->remove_handler(SSH2_MSG_USERAUTH_PK_OK);
+
+        $sent;
+    });
+
+    my $packet = $ssh->packet_start(SSH2_MSG_USERAUTH_REQUEST);
+    $packet->put_str($ssh->config->get('user'));
+    $packet->put_str("ssh-connection");
+    $packet->put_str("publickey");
+    $packet->put_int8(0);   ## No signature, just public key blob.
+    $packet->put_str($key->ssh_name)
+        unless $ssh->{datafellows} & SSH_COMPAT_BUG_PKAUTH;
+    $packet->put_str($blob);
     $packet->send;
 
     return 1;
@@ -122,19 +205,29 @@ authentication module needs to proceed. In this case, for
 example, the I<$ssh> object might contain a list of
 identity files (see the docs for I<Net::SSH::Perl>).
 
-The I<authenticate> method tries to load each of the user's
-private key identity files (specified in the I<Net::SSH::Perl>
-constructor, or defaulted to I<$ENV{HOME}/.ssh/id_dsa>). For
-each identity, I<authenticate> enters into a dialog with the
-sshd server.
+The I<authenticate> method first tries to establish a connection
+to an authentication agent. If the attempt is successful,
+I<authenticate> loops through each of the identities returned from
+the agent and tries each identity against the sshd, entering into
+a dialog with the server: the client sends the public portion of
+the key to determine whether the server will accept it; if the
+server accepts the key as authorization, the client then asks the
+agent to sign a piece of data using the key, which the client sends
+to the server. If the server accepts an identity/key, authentication
+is successful.
 
-The client sends a message to the server, giving its public
-key, plus a signature of the key and the other data in
-the message (session ID, etc.). The signature is generated
-using the corresponding private key. The sshd receives the
-message and verifies the signature using the client's public
-key. If the verification is successful, the authentication
-succeeds. Otherwise the authentication fails.
+If the agent connection attempt fails, or if none of the identities
+returned from the agent allow for successful authentication,
+I<authenticate> then tries to load each of the user's private key
+identity files (specified in the I<Net::SSH::Perl> constructor, or
+defaulted to F<$ENV{HOME}/.ssh/id_dsa>). For each identity,
+I<authenticate> enters into a dialog with the server. The client
+sends a message to the server, giving its public key, plus a signature
+of the key and the other data in the message (session ID, etc.).
+The signature is generated using the corresponding private key.
+The sshd receives the message and verifies the signature using the
+client's public key. If the verification is successful, the
+authentication succeeds.
 
 When loading each of the private key files, the client first
 tries to load the key using an empty passphrase. If this

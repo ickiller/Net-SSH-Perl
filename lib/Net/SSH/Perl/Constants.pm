@@ -1,4 +1,4 @@
-# $Id: Constants.pm,v 1.20 2001/05/24 07:21:43 btrott Exp $
+# $Id: Constants.pm,v 1.22 2001/05/31 17:20:42 btrott Exp $
 
 package Net::SSH::Perl::Constants;
 use strict;
@@ -44,6 +44,7 @@ use vars qw( %CONSTANTS );
     'SSH_COMPAT_BUG_HMAC' => 0x04,
     'SSH_COMPAT_BUG_X11FWD' => 0x08,
     'SSH_COMPAT_OLD_SESSIONID' => 0x10,
+    'SSH_COMPAT_BUG_PKAUTH' => 0x20,
     'SSH_COMPAT_BUG_RSASIGMD5' => 0x2000,
 
     'SSH2_MSG_DISCONNECT' => 1,
@@ -80,6 +81,20 @@ use vars qw( %CONSTANTS );
     'SSH_CHANNEL_INPUT_DRAINING' => 8,
     'SSH_CHANNEL_OUTPUT_DRAINING' => 9,
     'SSH_CHANNEL_LARVAL' => 10,
+
+    'SSH_AGENTC_REQUEST_RSA_IDENTITIES' => 1,
+    'SSH_AGENT_RSA_IDENTITIES_ANSWER' => 2,
+    'SSH_AGENTC_RSA_CHALLENGE' => 3,
+    'SSH_AGENT_RSA_RESPONSE' => 4,
+    'SSH_AGENT_FAILURE' => 5,
+    'SSH_AGENT_SUCCESS' => 6,
+
+    'SSH2_AGENTC_REQUEST_IDENTITIES' => 11,
+    'SSH2_AGENT_IDENTITIES_ANSWER' => 12,
+    'SSH2_AGENTC_SIGN_REQUEST' => 13,
+    'SSH2_AGENT_SIGN_RESPONSE' => 14,
+
+    'SSH_COM_AGENT2_FAILURE' => 102,
 
     'CHAN_INPUT_OPEN' => 0x01,
     'CHAN_INPUT_WAIT_DRAIN' => 0x02,
@@ -124,6 +139,7 @@ use vars qw( %TAGS );
 my %RULES = (
     '^SSH_\w?MSG'  => 'msg',
     '^SSH2_\w?MSG' => 'msg2',
+    '^SSH2?_AGENT' => 'agent',
     '^KEX'         => 'kex',
     '^PROTOCOL'    => 'protocol',
     '^HOST'        => 'hosts',
@@ -220,9 +236,18 @@ SSH_CMSG_REQUEST_COMPRESSION.
 
 The HOST constants: HOST_OK, HOST_NEW, and HOST_CHANGED.
 These are returned from the C<_check_host_in_hostfile>
-routine in I<Net::SSH::Perl::Util>. See that docs for
+routine in I<Net::SSH::Perl::Util>. See those docs for
 that routine for an explanation of the meaning of these
 constants.
+
+=item * agent
+
+The AGENT constants, used when talking to an authentication
+agent: SSH_AGENTC_REQUEST_RSA_IDENTITIES,
+SSH_AGENT_RSA_IDENTITIES_ANSWER, SSH_AGENTC_RSA_CHALLENGE,
+SSH_AGENT_RSA_RESPONSE, SSH_AGENT_FAILURE, SSH_AGENT_SUCCESS,
+SSH2_AGENTC_REQUEST_IDENTITIES, SSH2_AGENT_IDENTITIES_ANSWER,
+SSH2_AGENTC_SIGN_REQUEST, SSH2_AGENT_SIGN_RESPONSE.
 
 =back
 
