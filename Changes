@@ -1,6 +1,14 @@
-$Id: Changes,v 1.15 2001/03/08 20:52:16 btrott Exp $
+$Id: Changes,v 1.19 2001/03/09 19:18:16 btrott Exp $
 
 Revision history for Net::SSH::Perl
+
+0.63  2001.03.09
+    - added documentation to pssh (eg/pssh), as well as a -V
+      option.
+    - fixed bug where User specified in config file would be
+      overridden by lack of user in login method.
+    - return value of buffer->dump method no longer contains
+      extra space at the end.
 
 0.62  2001.03.08
     - fixed test bug with StringThing package by adding FILENO

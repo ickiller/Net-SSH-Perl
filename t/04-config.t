@@ -8,7 +8,7 @@ use Net::SSH::Perl;
 use Net::SSH::Perl::Config;
 
 use Test;
-BEGIN { plan tests => 23 };
+BEGIN { plan tests => 25 };
 
 my($cfg, $ssh);
 
@@ -71,3 +71,10 @@ $ssh = Net::SSH::Perl->new("foo", user_config => $CFG_FILE, options => [
 ok($ssh->config->get('port'), 22);
 ok($ssh->config->get('auth_rhosts'), 0);
 ok($ssh->config->get('interactive'), 1);
+
+## Test whether a user we pass in through constructor properly
+## overrides the absence of a user passed in through login method.
+$ssh = Net::SSH::Perl->new("foo", options => [ "User bar" ]);
+ok($ssh->config->get('user'), 'bar');
+$ssh->login;
+ok($ssh->config->get('user'), 'bar');

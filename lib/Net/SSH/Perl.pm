@@ -1,4 +1,4 @@
-# $Id: Perl.pm,v 1.37 2001/03/08 20:54:09 btrott Exp $
+# $Id: Perl.pm,v 1.41 2001/03/09 19:29:27 btrott Exp $
 
 package Net::SSH::Perl;
 use strict;
@@ -22,7 +22,7 @@ use Carp qw( croak );
 use Sys::Hostname;
 $HOSTNAME = hostname();
 
-$VERSION = "0.62";
+$VERSION = "0.63";
 
 sub new {
     my $class = shift;
@@ -31,9 +31,14 @@ sub new {
         unless defined $host;
     my $ssh = bless { host => $host }, $class;
     $ssh->_init(@_);
-    $ssh->debug(sprintf "Net::SSH Version $VERSION, protocol version %s.%s.",
-        PROTOCOL_MAJOR, PROTOCOL_MINOR);
+    $ssh->debug($class->version_string);
     $ssh;
+}
+
+sub version_string {
+    my $class = shift;
+    sprintf "%s Version %s, protocol version %s.%s.",
+        $class, $VERSION, PROTOCOL_MAJOR, PROTOCOL_MINOR;
 }
 
 sub _init {
@@ -219,9 +224,13 @@ sub debug {
 sub login {
     my $ssh = shift;
     my($user, $pass) = @_;
-    $pass = $CONFIG->{ssh_password} if exists $CONFIG->{ssh_password};
-    $user = scalar getpwuid($<) unless defined $user;
-    $ssh->{config}->set('user', $user);
+    if (!defined $ssh->{config}->get('user')) {
+        $ssh->{config}->set('user',
+            defined $user ? $user : scalar getpwuid($<));
+    }
+    if (!defined $pass && exists $CONFIG->{ssh_password}) {
+        $pass = $CONFIG->{ssh_password};
+    }
     $ssh->{config}->set('pass', $pass);
 }
 

@@ -1,4 +1,4 @@
-# $Id: Buffer.pm,v 1.5 2001/03/05 22:55:48 btrott Exp $
+# $Id: Buffer.pm,v 1.6 2001/03/09 18:37:10 btrott Exp $
 
 package Net::SSH::Perl::Buffer;
 use strict;
@@ -42,11 +42,11 @@ sub offset { $_[0]->{offset} }
 
 sub dump {
     my $buf = shift;
-    my $res;
+    my @r;
     for my $c (split //, $buf->bytes(@_)) {
-        $res .= sprintf "%02x ", ord $c;
+        push @r, sprintf "%02x", ord $c;
     }
-    $res;
+    join ' ', @r
 }
 
 sub insert_padding {

@@ -1,11 +1,11 @@
-$Id: README,v 1.8 2001/02/22 04:31:04 btrott Exp $
+$Id: README,v 1.9 2001/03/09 19:17:38 btrott Exp $
 
 This is Net::SSH::Perl.
 
 PREREQUISITES
 
-    * Math::GMP (1.04)
-    * String::CRC32 (1.2)
+    * Math::GMP (1.04 or greater)
+    * String::CRC32 (1.2 or greater)
     * Digest::MD5
 
 INSTALLATION
@@ -49,10 +49,11 @@ SAMPLES/TUTORIALS
 Take a look at the scripts in eg/ for help and examples of
 using Net::SSH::Perl. eg/cmd.pl is just a simple example of
 some of the functionality, eg/pssh is an ssh-like client
-for running commands on other servers, and eg/pscp is a very
-simple scp-like script. Both pssh and pscp support a subset
+for running commands on remote servers and connecting to a
+shell on remote servers, and eg/pscp is a very simple
+scp-like script. Both pssh and pscp support a subset
 of the command line options that the actual tools support;
 obviously, only those options supported by Net::SSH::Perl are
-supported by pssh and pscp.
+supported by the two scripts.
 
 Benjamin Trott / ben@rhumba.pair.com
