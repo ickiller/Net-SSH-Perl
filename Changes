@@ -1,0 +1,45 @@
+Revision history for Perl extension Net::SSH::Perl.
+
+0.04  Mon Feb 5 13:52:02 2001
+        - moved my Net::SSH libraries into the Net::SSH::Perl
+          namespace; hooked up the main Net::SSH interface lib.
+        - added ssh and issh wrappers around OO methods.
+        - added configure method to Net::SSH interface; used to
+          set up connection params when using procedural
+          interface.
+        - added RSA authentication.
+        - ripped out IO::Socket usage, replaced with manual
+          socket creation and connection so we can try to bind to
+          ports 1023 down through 512, if the user wants to
+          connect on a privileged port.
+        - added Rhosts-RSA and Rhosts authentication, with the
+          caveat that they only work when running as root
+          and on a privileged port.
+
+0.03  Fri Jan 19 17:52:34 2001
+        - integrated modified CBC and CFB ciphers into distribution;
+          no more reliance on Crypt::CFB and Crypt::CBC
+        - improved cipher checking; added list of ciphers supported
+          by client, based on which cipher drivers can be loaded
+        - fixed rsa_private_decrypt bug (occurred when session key
+          int was 255 chars long as hex string, rather than 256).
+        - Chip Turner, author of Math::GMP, added my patch to his
+          distribution, thus making installation much easier. Thanks
+          Chip.
+        - added cipher support to installation process.
+        - abstracted the auth plugins into Auth modules; this will
+          allow the addition of other authentication modules in
+          the future.
+        - moved utility routines into Net::SSH::Util.
+        - changed Net::SSH::Constants to use Exporter.
+
+0.02  Thu Jan 18 14:39:15 2001
+        - added DES and 3DES ciphers
+        - more host key support: adds new host keys to user host key file
+        - checked for unsupported Net::SSH::Buffer methods in AUTOLOAD
+        - added example script, eg/cmd.pl
+        - can now specify cipher via new method
+        - checks against server's supported cipher list
+
+0.01  Wed Jan 10 14:45:19 2001
+        - original version; created by h2xs 1.19

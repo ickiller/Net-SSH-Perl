@@ -1,0 +1,91 @@
+This is Net::SSH::Perl 0.50.
+
+PROGRESS
+
+Features added in version 0.50:
+    * moved my Net::SSH libraries into the Net::SSH::Perl
+      namespace.
+    * added ssh and issh wrappers around OO methods.
+    * added configure method to Net::SSH::Perl in preparation
+      for the new Net::SSH interface.
+    * added RSA authentication.
+    * ripped out IO::Socket usage, replaced with manual
+      socket creation and connection so we can try to bind to
+      ports 1023 down through 512, if the user wants to
+      connect on a privileged port.
+    * added Rhosts-RSA and Rhosts authentication, with the
+      caveat that they only work when running as root
+      and on a privileged port.
+
+PREREQUISITES
+
+    * Math::GMP (1.04)
+    * String::CRC32 (1.2)
+    * Digest::MD5
+
+ENCRYPTION CIPHERS
+
+Net::SSH::Perl currently supports 3 encryption ciphers: IDEA, DES,
+and 3DES. Blowfish is also part of the distribution, but it
+doesn't actually work yet. :)
+
+In order to use the ciphers you'll need to install the
+corresponding Crypt:: module. I've not listed any of these
+modules as prerequisites above, but during the installation
+process you'll be prompted to add some of these modules
+so that you can use the encryption.
+
+INSTALLATION
+
+Net::SSH::Perl installation is relatively straightforward. The
+only slightly complicated bit is that you'll need to install
+Crypt:: modules depending on which ciphers you wish to use.
+This has been made quite easy if you use the CPAN shell to
+install Net::SSH::Perl; the installation process will ask you which
+ciphers you wish to have installed, and will then add the
+Crypt:: modules as prerequisites. The CPAN shell should then
+install them automatically.
+
+Even if you're not using the CPAN shell, the installation script
+tries to make things easy by detecting which modules you'll need
+to install, then loading the CPAN shell and installing them,
+if you want.
+
+If you don't like either of those options you'll need to do the
+installations manually. In which case you'll need to install
+Math::GMP (version 1.04 or greater), String::CRC32 (version 1.2
+or greater), and Digest::MD5, plus any additional Crypt:: modules
+you wish to use.
+
+Net::SSH::Perl itself installs like a Perl module should:
+
+    % perl Makefile.PL
+    % make && make test && make install
+
+BUGS
+
+The following bugs/problems still exist:
+    * Blowfish support is included but it doesn't work, yet.
+      This seems to be a problem with incompatibilities
+      between the blowfish in ssh and Crypt::Blowfish,
+      but I can't be sure.
+
+SUPPORT
+
+Take a look at the scripts in eg/ for help and examples of
+using Net::SSH::Perl. eg/cmd.pl is just a simple example of
+some of the functionality, eg/pssh is an ssh-like client
+for running commands on other servers, and eg/pscp is a very
+simple scp-like script. Both pssh and pscp support a subset
+of the command line options that the actual tools support;
+obviously, only those options supported by Net::SSH::Perl are
+supported by pssh and pscp.
+
+If you have any questions, code samples, bug reports, or
+feedback, please email them to:
+
+    ben@rhumba.pair.com
+
+COPYRIGHT
+
+(C) 2001 Benjamin Trott. All rights reserved.

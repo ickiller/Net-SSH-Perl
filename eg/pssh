@@ -1,0 +1,21 @@
+#!/usr/bin/perl -w
+use strict;
+
+use Net::SSH::Perl;
+use Getopt::Std;
+
+my %opts;
+getopts("c:l:p:v", \%opts);
+my($host, $cmd) = @ARGV;
+
+die "usage: pssh [options] hostname command"
+    unless $host && $cmd;
+
+my $ssh = Net::SSH::Perl->new($host,
+    interactive => 1,
+    cipher => $opts{c},
+    port => $opts{p},
+    debug => $opts{v});
+$ssh->login($opts{l});
+my($out, $err, $exit) = $ssh->cmd($cmd);
+print $out;
