@@ -1,4 +1,4 @@
-# $Id: DH1.pm,v 1.14 2001/05/11 01:00:46 btrott Exp $
+# $Id: DH1.pm,v 1.15 2001/07/11 21:57:31 btrott Exp $
 
 package Net::SSH::Perl::Kex::DH1;
 use strict;
@@ -78,7 +78,7 @@ sub kex_hash {
     my $kex = shift;
     my($c_vs, $s_vs, $c_kexinit, $s_kexinit, $s_host_key_blob,
        $c_dh_pub, $s_dh_pub, $shared_secret) = @_;
-    my $b = Net::SSH::Perl::Buffer->new;
+    my $b = Net::SSH::Perl::Buffer->new( MP => 'SSH2' );
     $b->put_str($c_vs);
     $b->put_str($s_vs);
 

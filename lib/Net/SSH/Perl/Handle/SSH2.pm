@@ -1,10 +1,9 @@
 package Net::SSH::Perl::Handle::SSH2;
 use strict;
 
-use Net::SSH::Perl::Buffer qw( SSH2 );
+use Net::SSH::Perl::Buffer;
 use Net::SSH::Perl::Constants qw( :channels );
 
-use Carp qw( croak );
 use Tie::Handle;
 use base qw( Tie::Handle );
 
@@ -14,7 +13,7 @@ sub TIEHANDLE {
     my $read = $mode =~ /^[rR]/;
     my $handle = bless { channel => $channel, exit => $r_exit }, $class;
     if ($read) {
-        my $incoming = $handle->{incoming} = Net::SSH::Perl::Buffer->new;
+        my $incoming = $handle->{incoming} = Net::SSH::Perl::Buffer->new( MP => 'SSH2' );
         $channel->register_handler("_output_buffer", sub {
             my($channel, $buffer) = @_;
             $incoming->append($buffer->bytes);
@@ -29,7 +28,7 @@ sub READ {
     my $buf = $h->{incoming};
     while (!$buf->length) {
         $h->{channel}{ssh}->client_loop;
-        croak "Connection closed" unless $buf->length;
+        $_[0] = undef, return 0 unless $buf->length;
     }
     $_[0] = $buf->bytes;
     $buf->empty;

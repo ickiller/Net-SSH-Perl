@@ -1,4 +1,4 @@
-# $Id: Config.pm,v 1.17 2001/07/03 07:04:34 btrott Exp $
+# $Id: Config.pm,v 1.18 2001/07/10 23:40:06 btrott Exp $
 
 package Net::SSH::Perl::Config;
 use strict;
@@ -91,6 +91,7 @@ sub _host {
 
 sub _batch_mode {
     my($cfg, $key, $batch) = @_;
+    return if exists $cfg->{o}{interactive};
     $cfg->{o}{interactive} = $batch eq "yes" ? 0 : 1;
 }
 
@@ -98,6 +99,7 @@ sub _identity_file {
     my($cfg, $key, $id_file) = @_;
     $cfg->{identity_files} = []
         unless ref $cfg->{o}{identity_files} eq "ARRAY";
+    $id_file =~ s!~!$ENV{HOME}!;
     push @{ $cfg->{o}{identity_files} }, $id_file;
 }
 

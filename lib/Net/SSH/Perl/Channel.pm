@@ -1,4 +1,4 @@
-# $Id: Channel.pm,v 1.12 2001/06/07 21:21:52 btrott Exp $
+# $Id: Channel.pm,v 1.13 2001/07/11 21:57:26 btrott Exp $
 
 package Net::SSH::Perl::Channel;
 use strict;
@@ -21,9 +21,9 @@ sub init {
     my $c = shift;
     $c->{id} = $c->{mgr}->new_channel_id;
     $c->{type} = SSH_CHANNEL_OPENING;
-    $c->{input} = Net::SSH::Perl::Buffer->new;
-    $c->{output} = Net::SSH::Perl::Buffer->new;
-    $c->{extended} = Net::SSH::Perl::Buffer->new;
+    $c->{input} = Net::SSH::Perl::Buffer->new( MP => 'SSH2' );
+    $c->{output} = Net::SSH::Perl::Buffer->new( MP => 'SSH2' );
+    $c->{extended} = Net::SSH::Perl::Buffer->new( MP => 'SSH2' );
     $c->{ostate} = CHAN_OUTPUT_OPEN;
     $c->{istate} = CHAN_INPUT_OPEN;
     $c->{flags} = 0;

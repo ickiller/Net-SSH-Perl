@@ -1,4 +1,4 @@
-# $Id: Perl.pm,v 1.99 2001/07/04 20:42:47 btrott Exp $
+# $Id: Perl.pm,v 1.102 2001/07/11 22:13:49 btrott Exp $
 
 package Net::SSH::Perl;
 use strict;
@@ -22,7 +22,7 @@ eval {
     $HOSTNAME = hostname();
 };
 
-$VERSION = "1.19";
+$VERSION = "1.20";
 
 sub VERSION { $VERSION }
 
@@ -94,6 +94,12 @@ sub version_string { }
 sub client_version_string { $_[0]->{client_version_string} }
 sub server_version_string { $_[0]->{server_version_string} }
 
+sub _current_user {
+    my $user;
+    eval { $user = scalar getpwuid($<) };
+    $user;
+}
+
 sub _init {
     my $ssh = shift;
 
@@ -126,7 +132,8 @@ sub _init {
         $ssh->{host} = $real_host;
     }
 
-    if (scalar getpwuid($<) eq "root" &&
+    my $user = _current_user();
+    if ($user && $user eq "root" &&
       !defined $ssh->{config}->get('privileged')) {
         $ssh->{config}->set('privileged', 1);
     }
@@ -162,7 +169,7 @@ sub ssh {
     my($host, @cmd) = @_;
     my($user);
     ($host, $user) = $host =~ m!(.+)@(.+)! ?
-       ($2, $1) : ($host, scalar getpwuid($<));
+       ($2, $1) : ($host, _current_user());
     my $ssh = __PACKAGE__->new($host, %$CONFIG);
     $ssh->login($user);
     my($out, $err, $exit) = $ssh->cmd(join ' ', @cmd);
@@ -303,7 +310,7 @@ sub login {
     my($user, $pass) = @_;
     if (!defined $ssh->{config}->get('user')) {
         $ssh->{config}->set('user',
-            defined $user ? $user : scalar getpwuid($<));
+            defined $user ? $user : _current_user());
     }
     if (!defined $pass && exists $CONFIG->{ssh_password}) {
         $pass = $CONFIG->{ssh_password};
@@ -319,7 +326,7 @@ sub shell { }
 sub incoming_data {
     my $ssh = shift;
     if (!exists $ssh->{session}{incoming_data}) {
-        $ssh->{session}{incoming_data} = Net::SSH::Perl::Buffer->new;
+        $ssh->{session}{incoming_data} = Net::SSH::Perl::Buffer->new( MP => $ssh->protocol == PROTOCOL_SSH2 ? 'SSH2' : 'SSH1' );
     }
     $ssh->{session}{incoming_data};
 }

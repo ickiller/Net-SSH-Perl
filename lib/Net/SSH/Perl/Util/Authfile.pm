@@ -1,9 +1,9 @@
-# $Id: Authfile.pm,v 1.4 2001/05/10 22:44:23 btrott Exp $
+# $Id: Authfile.pm,v 1.5 2001/07/11 21:57:37 btrott Exp $
 
 package Net::SSH::Perl::Util::Authfile;
 use strict;
 
-use Net::SSH::Perl::Buffer qw( SSH1 );
+use Net::SSH::Perl::Buffer;
 use Net::SSH::Perl::Constants qw( PRIVATE_KEY_ID_STRING );
 use Net::SSH::Perl::Cipher;
 use Net::SSH::Perl::Key;
@@ -24,7 +24,7 @@ sub _load_private_key {
     close FH or die "Can't close $key_file: $!";
     ($c) = $c =~ /(.*)/s;  ## Untaint data. Anything is allowed.
 
-    my $buffer = Net::SSH::Perl::Buffer->new;
+    my $buffer = Net::SSH::Perl::Buffer->new( MP => 'SSH1' );
     $buffer->append($c);
 
     my $id = $buffer->bytes(0, length(PRIVATE_KEY_ID_STRING), "");
@@ -78,7 +78,7 @@ sub _save_private_key {
 
     my $cipher_type = $passphrase eq '' ? 'None' : 'DES3';
 
-    my $buffer = Net::SSH::Perl::Buffer->new;
+    my $buffer = Net::SSH::Perl::Buffer->new( MP => 'SSH1' );
     my($check1, $check2);
     $buffer->put_int8($check1 = int rand 255);
     $buffer->put_int8($check2 = int rand 255);
@@ -93,7 +93,7 @@ sub _save_private_key {
     $buffer->put_int8(0)
         while $buffer->length % 8;
 
-    my $encrypted = Net::SSH::Perl::Buffer->new;
+    my $encrypted = Net::SSH::Perl::Buffer->new( MP => 'SSH1' );
     $encrypted->put_chars(PRIVATE_KEY_ID_STRING);
     $encrypted->put_int8(0);
     $encrypted->put_int8(Net::SSH::Perl::Cipher::id($cipher_type));

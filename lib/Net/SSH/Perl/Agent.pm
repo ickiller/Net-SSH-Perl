@@ -1,4 +1,4 @@
-# $Id: Agent.pm,v 1.3 2001/06/05 00:55:39 btrott Exp $
+# $Id: Agent.pm,v 1.4 2001/07/11 21:57:26 btrott Exp $
 
 package Net::SSH::Perl::Agent;
 use strict;
@@ -6,6 +6,7 @@ use strict;
 use IO::Socket;
 use Carp qw( croak );
 use Net::SSH::Perl::Constants qw( :agent SSH_COM_AGENT2_FAILURE );
+use Net::SSH::Perl::Buffer;
 
 sub new {
     my $class = shift;
@@ -18,7 +19,6 @@ sub init {
     my($version) = @_;
     $agent->{sock} = $agent->create_socket or return;
     $agent->{version} = $version;
-    eval "use Net::SSH::Perl::Buffer qw( SSH$agent->{version} );";
     $agent;
 }
 
@@ -50,7 +50,7 @@ sub request {
     $len = unpack "N", $buf;
     croak "Auth response too long: $len" if $len > 256 * 1024;
 
-    $buf = Net::SSH::Perl::Buffer->new;
+    $buf = Net::SSH::Perl::Buffer->new( MP => "SSH$agent->{version}" );
     while ($buf->length < $len) {
         my $b;
         my $l = sysread $sock, $b, $len;
@@ -68,7 +68,7 @@ sub num_identities {
         (SSH2_AGENTC_REQUEST_IDENTITIES, SSH2_AGENT_IDENTITIES_ANSWER) :
         (SSH_AGENTC_REQUEST_RSA_IDENTITIES, SSH_AGENT_RSA_IDENTITIES_ANSWER);
 
-    my $r = Net::SSH::Perl::Buffer->new;
+    my $r = Net::SSH::Perl::Buffer->new( MP => "SSH$agent->{version}" );
     $r->put_int8($type1);
     my $reply = $agent->{identities} = $agent->request($r);
 
@@ -123,7 +123,7 @@ sub sign {
     my $agent = shift;
     my($key, $data) = @_;
     my $blob = $key->as_blob;
-    my $r = Net::SSH::Perl::Buffer->new;
+    my $r = Net::SSH::Perl::Buffer->new( MP => "SSH$agent->{version}" );
     $r->put_int8(SSH2_AGENTC_SIGN_REQUEST);
     $r->put_str($blob);
     $r->put_str($data);
@@ -145,7 +145,7 @@ sub sign {
 sub decrypt {
     my $agent = shift;
     my($key, $data, $session_id) = @_;
-    my $r = Net::SSH::Perl::Buffer->new;
+    my $r = Net::SSH::Perl::Buffer->new( MP => "SSH$agent->{version}" );
     $r->put_int8(SSH_AGENTC_RSA_CHALLENGE);
     $r->put_int32($key->{rsa}{bits});
     $r->put_mp_int($key->{rsa}{e});

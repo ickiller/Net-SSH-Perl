@@ -1,9 +1,9 @@
-# $Id: RSA.pm,v 1.7 2001/06/03 23:40:20 btrott Exp $
+# $Id: RSA.pm,v 1.8 2001/07/11 21:57:33 btrott Exp $
 
 package Net::SSH::Perl::Key::RSA;
 use strict;
 
-use Net::SSH::Perl::Buffer qw( SSH2 );
+use Net::SSH::Perl::Buffer;
 use Net::SSH::Perl::Constants qw( SSH_COMPAT_BUG_RSASIGMD5 );
 use Net::SSH::Perl::Util qw( :ssh2mp );
 
@@ -34,7 +34,7 @@ sub init {
     my($blob, $datafellows) = @_;
 
     if ($blob) {
-        my $b = Net::SSH::Perl::Buffer->new;
+        my $b = Net::SSH::Perl::Buffer->new( MP => 'SSH2' );
         $b->append($blob);
         my $ktype = $b->get_str;
         croak __PACKAGE__, "->init: cannot handle type '$ktype'"
@@ -160,7 +160,7 @@ sub sign {
            );
     croak $rsa->errstr unless $sig;
     
-    my $b = Net::SSH::Perl::Buffer->new;
+    my $b = Net::SSH::Perl::Buffer->new( MP => 'SSH2' );
     $b->put_str($key->ssh_name);
     $b->put_str($sig);
     $b->bytes;
@@ -170,7 +170,7 @@ sub verify {
     my $key = shift;
     my($signature, $data) = @_;
 
-    my $b = Net::SSH::Perl::Buffer->new;
+    my $b = Net::SSH::Perl::Buffer->new( MP => 'SSH2' );
     $b->append($signature);
     my $ktype = $b->get_str;
     croak "Can't verify type ", $ktype unless $ktype eq $key->ssh_name;
@@ -197,7 +197,7 @@ sub equal {
 
 sub as_blob {
     my $key = shift;
-    my $b = Net::SSH::Perl::Buffer->new;
+    my $b = Net::SSH::Perl::Buffer->new( MP => 'SSH2' );
     $b->put_str($key->ssh_name);
     $b->put_mp_int($key->{rsa_pub}->e);
     $b->put_mp_int($key->{rsa_pub}->n);

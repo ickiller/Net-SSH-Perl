@@ -1,6 +1,27 @@
-$Id: Changes,v 1.66 2001/07/04 20:42:46 btrott Exp $
+$Id: Changes,v 1.67 2001/07/11 22:13:46 btrott Exp $
 
 Revision history for Net::SSH::Perl
+
+1.20  2001.07.11
+    - A read on an open2 tied filehandle that indicates a closed connection
+      will now return 0 bytes instead of causing a fatal error. Thanks to
+      Anthony Ball for the reasoning and the fix.
+    - getpwuid is now called in an eval, so on systems that do not
+      support it, it will not cause a fatal error. Thanks to Shaun
+      Bramley for the spot.
+    - Bug with "BatchMode no" in a config file overriding interactive => 1
+      in the constructor is now fixed. Thanks to Doug Wilson for the spot.
+    - Tildes ('~') in IdentityFile config file directive were not being
+      expanded to $ENV{HOME} as they should have been. This is now
+      fixed. Thanks to Doug Wilson for the spot.
+    - Doug Wilson pointed out that it was impossible to use an open
+      SSH-1 and SSH-2 handle at the same time, because of the way
+      Buffer worked (setting method globs on import). This has now been
+      fixed throughout the distribution by using function pointers in
+      the object instead.
+    - You can now use 'stdout' and 'stderr' in SSH-1 register_handler,
+      as aliases for SSH_SMSG_STDOUT_DATA and SSH_SMSG_STDERR_DATA.
+      Thanks to Doug Wilson for the idea.
 
 1.19  2001.07.04
     - open2 interface now works with a shell, not just with running a

@@ -1,35 +1,26 @@
-# $Id: Buffer.pm,v 1.12 2001/04/24 23:57:41 btrott Exp $
+# $Id: Buffer.pm,v 1.13 2001/07/11 21:57:26 btrott Exp $
 
 package Net::SSH::Perl::Buffer;
 use strict;
 
-sub import {
-    my $class = shift;
-    unless ($class->can('get_mp_int') && $class->can('put_mp_int')) {
-        return unless @_;
-        my $proto = shift;
-        die "Unrecognized SSH protocol '$proto'"
-            unless $proto eq 'SSH1' || $proto eq 'SSH2';
-        if ($proto eq 'SSH1') {
-            eval "use Math::GMP;";
-        }
-        else {
-            eval "use Net::SSH::Perl::Util qw( :ssh2mp );";
-        }
-        no strict 'refs';
-        for my $w (qw( get put )) {
-            my $meth = "${w}_mp_int";
-            unless ($class->can($meth)) {
-                *{"${class}::$meth"} = $proto eq 'SSH1' ?
-                    \&{"${class}::${meth}1"} : \&{"${class}::${meth}2"};
-            }
-        }
-    }
-}
+{
+    my %MP_MAP = (
+        SSH1 => [ "use Math::GMP;", \&_get_mp_int_ssh1, \&_put_mp_int_ssh1 ],
+        SSH2 => [ "use Net::SSH::Perl::Util qw( :ssh2mp )",
+                  \&_get_mp_int_ssh2, \&_put_mp_int_ssh2 ],
+    );
 
-sub new {
-    my $class = shift;
-    bless { buf => "", offset => 0 }, $class;
+    sub new {
+        my $class = shift;
+        my $buf = bless { buf => '', offset => 0 }, $class;
+        my %param = @_;
+        my $mp = $MP_MAP{ $param{MP} || 'SSH1' };
+        die "Unrecognized SSH protocol $param{MP}" unless $mp;
+        eval $mp->[0];
+        $buf->{_get_mp_int} = $mp->[1];
+        $buf->{_put_mp_int} = $mp->[2];
+        $buf;
+    }
 }
 
 sub empty {
@@ -143,7 +134,10 @@ sub put_str {
     $buf->{buf} .= $str;
 }
 
-sub get_mp_int1 {
+sub get_mp_int { $_[0]->{_get_mp_int}->(@_) }
+sub put_mp_int { $_[0]->{_put_mp_int}->(@_) }
+
+sub _get_mp_int_ssh1 {
     my $buf = shift;
     my $off = defined $_[0] ? shift : $buf->{offset};
     my $bits = unpack "n", $buf->bytes($off, 2);
@@ -154,7 +148,7 @@ sub get_mp_int1 {
     Math::GMP->new("0x$hex");
 }
 
-sub put_mp_int1 {
+sub _put_mp_int_ssh1 {
     my $buf = shift;
     my $int = shift;
     my $bits = Math::GMP::sizeinbase_gmp($int, 2);
@@ -166,13 +160,13 @@ sub put_mp_int1 {
     $buf->put_chars($tmp);
 }
 
-sub get_mp_int2 {
+sub _get_mp_int_ssh2 {
     my $buf = shift;
     my $bits = $buf->get_str;
     bin2mp($bits);
 }
 
-sub put_mp_int2 {
+sub _put_mp_int_ssh2 {
     my $buf = shift;
     my $int = shift;
     my $bytes = (bitsize($int) / 8) + 1;

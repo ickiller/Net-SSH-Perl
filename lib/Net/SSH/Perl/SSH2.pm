@@ -1,4 +1,4 @@
-# $Id: SSH2.pm,v 1.30 2001/06/20 22:46:20 btrott Exp $
+# $Id: SSH2.pm,v 1.31 2001/07/11 21:57:26 btrott Exp $
 
 package Net::SSH::Perl::SSH2;
 use strict;
@@ -6,7 +6,7 @@ use strict;
 use Net::SSH::Perl::Kex;
 use Net::SSH::Perl::ChannelMgr;
 use Net::SSH::Perl::Packet;
-use Net::SSH::Perl::Buffer qw( SSH2 );
+use Net::SSH::Perl::Buffer;
 use Net::SSH::Perl::Constants qw( :protocol :msg2 );
 use Net::SSH::Perl::Cipher;
 use Net::SSH::Perl::AuthMgr;

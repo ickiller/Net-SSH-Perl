@@ -1,4 +1,4 @@
-# $Id: Kex.pm,v 1.17 2001/05/11 01:39:37 btrott Exp $
+# $Id: Kex.pm,v 1.18 2001/07/11 21:57:26 btrott Exp $
 
 package Net::SSH::Perl::Kex;
 use strict;
@@ -111,7 +111,7 @@ sub kexinit {
     my $kex = shift;
     my($proposal) = @_;
 
-    my $b = Net::SSH::Perl::Buffer->new;
+    my $b = Net::SSH::Perl::Buffer->new( MP => 'SSH2' );
     my $cookie = join '', map chr rand 255, 1..16;
     $b->put_chars($cookie);
     $b->put_str($_) for @$proposal;
@@ -161,7 +161,7 @@ sub derive_keys {
 
 sub derive_key {
     my($id, $need, $hash, $shared_secret) = @_;
-    my $b = Net::SSH::Perl::Buffer->new;
+    my $b = Net::SSH::Perl::Buffer->new( MP => 'SSH2' );
     $b->put_mp_int($shared_secret);
     my $digest = sha1($b->bytes, $hash, chr($id), $hash);
     for (my $have = 20; $need > $have; $have += 20) {

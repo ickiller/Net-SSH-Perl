@@ -1,4 +1,4 @@
-# $Id: PublicKey.pm,v 1.17 2001/05/31 18:52:35 btrott Exp $
+# $Id: PublicKey.pm,v 1.18 2001/07/11 21:57:28 btrott Exp $
 
 package Net::SSH::Perl::Auth::PublicKey;
 
@@ -106,7 +106,7 @@ sub _sign_send_pubkey {
     my $ssh = $auth->{ssh};
     my($packet);
 
-    my $b = Net::SSH::Perl::Buffer->new;
+    my $b = Net::SSH::Perl::Buffer->new( MP => 'SSH2' );
     if ($ssh->{datafellows} & SSH_COMPAT_OLD_SESSIONID) {
         $b->append($ssh->session_id);
     }

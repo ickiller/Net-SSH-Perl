@@ -1,10 +1,10 @@
-# $Id: SSH1.pm,v 1.16 2001/07/03 07:04:52 btrott Exp $
+# $Id: SSH1.pm,v 1.18 2001/07/11 22:14:01 btrott Exp $
 
 package Net::SSH::Perl::SSH1;
 use strict;
 
 use Net::SSH::Perl::Packet;
-use Net::SSH::Perl::Buffer qw( SSH1 );
+use Net::SSH::Perl::Buffer;
 use Net::SSH::Perl::Config;
 use Net::SSH::Perl::Constants qw( :protocol :msg :hosts );
 use Net::SSH::Perl::Cipher;
@@ -56,6 +56,12 @@ sub _disconnect {
 
 sub register_handler {
     my($ssh, $type, $sub, @extra) = @_;
+    ## XXX hack
+    if ($type eq 'stdout') {
+        $type = SSH_SMSG_STDOUT_DATA;
+    } elsif ($type eq 'stderr') {
+        $type = SSH_SMSG_STDERR_DATA;
+    }
     $ssh->{client_handlers}{$type} = { code => $sub, extra => \@extra };
 }
 sub handler_for { $_[0]->{client_handlers}{$_[1]} }

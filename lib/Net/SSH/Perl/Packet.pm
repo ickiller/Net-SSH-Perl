@@ -1,4 +1,4 @@
-# $Id: Packet.pm,v 1.18 2001/06/07 04:34:40 btrott Exp $
+# $Id: Packet.pm,v 1.19 2001/07/11 21:57:26 btrott Exp $
 
 package Net::SSH::Perl::Packet;
 
@@ -24,7 +24,8 @@ sub new {
     my $ssh   = shift;
     my $pack  = bless { ssh => $ssh, @_ }, $class;
     unless ($pack->{data}) {
-        $pack->{data} = Net::SSH::Perl::Buffer->new;
+        $pack->{data} = Net::SSH::Perl::Buffer->new(
+            MP => $ssh->protocol == PROTOCOL_SSH2 ? 'SSH2' : 'SSH1');
         if ($pack->{type}) {
             $pack->{data}->put_int8($pack->{type});
         }
@@ -112,7 +113,7 @@ sub read_poll_ssh1 {
     my $pad_len = ($len + 8) & ~7;
     return if $incoming->length < 4 + $pad_len;
 
-    my $buffer = Net::SSH::Perl::Buffer->new;
+    my $buffer = Net::SSH::Perl::Buffer->new( MP => 'SSH1' );
     $buffer->append($incoming->bytes(0, $pad_len+4, ''));
 
     $buffer->bytes(0, 4, "");
@@ -161,7 +162,7 @@ sub read_poll_ssh2 {
     my $incoming = $ssh->incoming_data;
     if (!$ssh->{session}{_last_packet_length}) {
         return if $incoming->length < $block_size;
-        my $b = Net::SSH::Perl::Buffer->new;
+        my $b = Net::SSH::Perl::Buffer->new( MP => 'SSH2' );
         $b->append( $ciph && $ciph->enabled ?
             $ciph->decrypt($incoming->bytes(0, $block_size)) : $incoming->bytes(0, $block_size)
         );
@@ -176,7 +177,7 @@ sub read_poll_ssh2 {
         if $need % $block_size;
     return if $incoming->length < $need + $block_size + $maclen;
 
-    my $buffer = Net::SSH::Perl::Buffer->new;
+    my $buffer = Net::SSH::Perl::Buffer->new( MP => 'SSH2' );
     $buffer->append( $incoming->bytes(0, $block_size, '') );
     my $p_str = $incoming->bytes(0, $need, '');
     $buffer->append( $ciph && $ciph->enabled ?
@@ -262,7 +263,7 @@ sub send_ssh1 {
     my $crc = _crc32($buffer->bytes);
     $buffer->put_int32($crc);
 
-    my $output = Net::SSH::Perl::Buffer->new;
+    my $output = Net::SSH::Perl::Buffer->new( MP => 'SSH1' );
     $output->put_int32($len);
     my $data = $cipher ? $cipher->encrypt($buffer->bytes) : $buffer->bytes;
     $output->put_chars($data);
@@ -304,7 +305,7 @@ sub send_ssh2 {
     if ($mac && $mac->enabled) {
         $macbuf = $mac->hmac(pack("N", $ssh->{session}{seqnr_out}) . $buffer->bytes);
     }
-    my $output = Net::SSH::Perl::Buffer->new;
+    my $output = Net::SSH::Perl::Buffer->new( MP => 'SSH2' );
     $output->append( $ciph && $ciph->enabled ? $ciph->encrypt($buffer->bytes) : $buffer->bytes );
     $output->append($macbuf) if $mac && $mac->enabled;
 

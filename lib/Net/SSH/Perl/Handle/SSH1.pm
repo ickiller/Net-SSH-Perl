@@ -1,13 +1,12 @@
 package Net::SSH::Perl::Handle::SSH1;
 use strict;
 
-use Net::SSH::Perl::Buffer qw( SSH1 );
+use Net::SSH::Perl::Buffer;
 use Net::SSH::Perl::Constants qw(
     SSH_SMSG_STDOUT_DATA
     SSH_CMSG_STDIN_DATA
     SSH_CMSG_EOF );
 
-use Carp qw( croak );
 use Tie::Handle;
 use base qw( Tie::Handle );
 
@@ -17,7 +16,7 @@ sub TIEHANDLE {
     my $read = $mode =~ /^[rR]/;
     my $handle = bless { ssh => $ssh, exit => $r_exit }, $class;
     if ($read) {
-        my $incoming = $handle->{incoming} = Net::SSH::Perl::Buffer->new;
+        my $incoming = $handle->{incoming} = Net::SSH::Perl::Buffer->new( MP => 'SSH1' );
         $ssh->register_handler(SSH_SMSG_STDOUT_DATA, sub {
             my($ssh, $packet) = @_;
             $incoming->append($packet->get_str);
@@ -32,7 +31,7 @@ sub READ {
     my $buf = $h->{incoming};
     while (!$buf->length) {
         $h->{ssh}->_start_interactive;
-        croak "Connection closed" unless $buf->length;
+        $_[0] = undef, return 0 unless $buf->length;
     }
     $_[0] = $buf->bytes;
     $buf->empty;

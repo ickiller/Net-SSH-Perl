@@ -1,4 +1,4 @@
-# $Id: Key.pm,v 1.18 2001/05/15 19:02:46 btrott Exp $
+# $Id: Key.pm,v 1.19 2001/07/11 21:57:26 btrott Exp $
 
 package Net::SSH::Perl::Key;
 use strict;
@@ -27,7 +27,7 @@ use vars qw( %KEY_TYPES );
 sub new_from_blob {
     my $class = shift;
     my($blob) = @_;
-    my $b = Net::SSH::Perl::Buffer->new;
+    my $b = Net::SSH::Perl::Buffer->new( MP => 'SSH1' );
     $b->append($blob);
     my $ssh_name = $b->get_str;
     my $type = $KEY_TYPES{$ssh_name};
