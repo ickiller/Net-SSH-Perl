@@ -13,6 +13,7 @@ use Carp qw( croak );
 use Crypt::DH;
 use Math::Pari;
 use Digest::SHA1 qw( sha1 );
+use Scalar::Util qw(weaken);
 
 use Net::SSH::Perl::Kex;
 use base qw( Net::SSH::Perl::Kex );
@@ -20,7 +21,9 @@ use base qw( Net::SSH::Perl::Kex );
 sub new {
     my $class = shift;
     my $ssh = shift;
-    bless { ssh => $ssh }, $class;
+    my $kex = bless { ssh => $ssh }, $class;
+    weaken $kex->{ssh};
+    $kex;
 }
 
 sub exchange {

@@ -16,10 +16,14 @@ use Net::SSH::Perl::Packet;
 use Net::SSH::Perl::Auth;
 use base qw( Net::SSH::Perl::Auth );
 
+use Scalar::Util qw(weaken);
+
 sub new {
     my $class = shift;
     my $ssh = shift;
-    bless { ssh => $ssh }, $class;
+    my $auth = bless { ssh => $ssh }, $class;
+    weaken $auth->{ssh};
+    $auth;
 }
 
 sub authenticate {

@@ -3,6 +3,8 @@
 use ExtUtils::MakeMaker qw( prompt WriteMakefile );
 use strict;
 
+use 5.0006;
+
 my $is_sdk = 0;
 for my $arg (@ARGV) {
     $is_sdk = 1, last if $arg eq '--sdk';
@@ -14,6 +16,7 @@ my %BASE_PREREQS = (
         'Math::GMP'         => '1.04',
         'Digest::MD5'       => 0,
         'IO::Socket'        => 0,
+	'Scalar::Util'      => 0,
     },
 
     2 => {

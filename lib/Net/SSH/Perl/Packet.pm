@@ -19,10 +19,13 @@ use Net::SSH::Perl::Constants qw(
     MAX_PACKET_SIZE );
 use Net::SSH::Perl::Buffer;
 
+use Scalar::Util qw(weaken);
+
 sub new {
     my $class = shift;
     my $ssh   = shift;
     my $pack  = bless { ssh => $ssh, @_ }, $class;
+    weaken $pack->{ssh};
     unless ($pack->{data}) {
         $pack->{data} = Net::SSH::Perl::Buffer->new(
             MP => $ssh->protocol == PROTOCOL_SSH2 ? 'SSH2' : 'SSH1');

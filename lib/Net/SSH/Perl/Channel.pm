@@ -7,11 +7,14 @@ use Net::SSH::Perl::Buffer;
 use Net::SSH::Perl::Constants qw( :msg2 :channels );
 
 use Carp qw( croak );
+use Scalar::Util qw(weaken);
 
 sub new {
     my $class = shift;
-    my($ssh, $mgr) = @_;
+    my($ssh, $mgr) = (shift, shift);
     my $c = bless { ssh => $ssh, mgr => $mgr, @_ }, $class;
+    weaken $c->{ssh};
+    weaken $c->{mgr};
     $c->init;
     $ssh->debug("channel $c->{id}: new [$c->{remote_name}]");
     $c;

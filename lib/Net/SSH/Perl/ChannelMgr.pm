@@ -8,11 +8,13 @@ use Net::SSH::Perl::Packet;
 use Net::SSH::Perl::Constants qw( :msg2 :channels );
 
 use Carp qw( croak );
+use Scalar::Util qw(weaken);
 
 sub new {
     my $class = shift;
     my $ssh = shift;
     my $cmgr = bless { ssh => $ssh, @_ }, $class;
+    weaken $cmgr->{ssh};
     $cmgr->init;
     $cmgr;
 }

@@ -17,10 +17,13 @@ use Net::SSH::Perl::Key;
 use Net::SSH::Perl::Auth;
 use base qw( Net::SSH::Perl::Auth );
 
+use Scalar::Util qw(weaken);
+
 sub new {
     my $class = shift;
     my $ssh = shift;
     my $auth = bless { ssh => $ssh }, $class;
+    weaken $auth->{ssh};
     $auth->enabled( $ssh->config->get('auth_dsa') );
     $auth;
 }

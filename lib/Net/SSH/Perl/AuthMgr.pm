@@ -15,6 +15,8 @@ use Net::SSH::Perl::Constants qw(
     SSH2_MSG_USERAUTH_SUCCESS
     SSH2_MSG_USERAUTH_FAILURE );
 
+use Scalar::Util qw(weaken);
+
 use vars qw( %AUTH_MAP );
 %AUTH_MAP = ( password => 'Password',
               publickey => 'PublicKey',
@@ -24,6 +26,7 @@ sub new {
     my $class = shift;
     my $ssh = shift;
     my $amgr = bless { ssh => $ssh }, $class;
+    weaken $amgr->{ssh};
     $amgr->init(@_);
 }
 

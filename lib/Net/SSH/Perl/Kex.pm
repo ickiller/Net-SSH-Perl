@@ -18,6 +18,7 @@ use Net::SSH::Perl::Constants qw(
 
 use Carp qw( croak );
 use Digest::SHA1 qw( sha1 );
+use Scalar::Util qw(weaken);
 
 use vars qw( @PROPOSAL );
 @PROPOSAL = (
@@ -36,7 +37,9 @@ use vars qw( @PROPOSAL );
 sub new {
     my $class = shift;
     my $ssh = shift;
-    bless { ssh => $ssh }, $class;
+    my $kex = bless { ssh => $ssh }, $class;
+    weaken $kex->{ssh};
+    $kex;
 }
 
 sub client_kexinit { $_[0]->{client_kexinit} }

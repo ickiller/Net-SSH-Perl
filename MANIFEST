@@ -1,8 +1,4 @@
 Changes
-MANIFEST
-Makefile.PL
-README
-ToDo
 eg/cmd.pl
 eg/pscp
 eg/pssh
@@ -16,9 +12,9 @@ lib/Net/SSH/Perl/Auth/ChallengeResponse.pm
 lib/Net/SSH/Perl/Auth/KeyboardInt.pm
 lib/Net/SSH/Perl/Auth/Password.pm
 lib/Net/SSH/Perl/Auth/PublicKey.pm
-lib/Net/SSH/Perl/Auth/RSA.pm
 lib/Net/SSH/Perl/Auth/Rhosts.pm
 lib/Net/SSH/Perl/Auth/Rhosts_RSA.pm
+lib/Net/SSH/Perl/Auth/RSA.pm
 lib/Net/SSH/Perl/AuthMgr.pm
 lib/Net/SSH/Perl/Buffer.pm
 lib/Net/SSH/Perl/Channel.pm
@@ -51,14 +47,22 @@ lib/Net/SSH/Perl/Util.pm
 lib/Net/SSH/Perl/Util/Authfile.pm
 lib/Net/SSH/Perl/Util/Hosts.pm
 lib/Net/SSH/Perl/Util/RSA.pm
-lib/Net/SSH/Perl/Util/SSH1MP.pm
 lib/Net/SSH/Perl/Util/SSH1Misc.pm
+lib/Net/SSH/Perl/Util/SSH1MP.pm
 lib/Net/SSH/Perl/Util/SSH2MP.pm
 lib/Net/SSH/Perl/Util/Term.pm
+LICENSE
+Makefile.PL
+MANIFEST
+MANIFEST.SKIP
+META.yml			Module meta-data (added by MakeMaker)
+README
 t/01-compile.t
 t/02-buffer.t
 t/03-packet.t
 t/04-config.t
 t/05-cipher.t
+t/06-circular.t
 t/config
 t/test-common.pl
+ToDo

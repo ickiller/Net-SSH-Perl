@@ -22,7 +22,7 @@ eval {
     $HOSTNAME = hostname();
 };
 
-$VERSION = '1.23';
+$VERSION = '1.24';
 
 sub VERSION { $VERSION }
 
@@ -855,13 +855,19 @@ feedback, please email them to:
 
     ben@rhumba.pair.com
 
-=head1 AUTHOR & COPYRIGHT
+=head1 AUTHOR
 
-Benjamin Trott, ben@rhumba.pair.com
+Current maintainer is Dave Rolsky, autarch@urth.org.
 
-Except where otherwise noted, Net::SSH::Perl is Copyright
-2001 Benjamin Trott. All rights reserved. Net::SSH::Perl is
-free software; you may redistribute it and/or modify it under
-the same terms as Perl itself.
+Originally written by Benjamin Trott.
+
+=head1 COPYRIGHT
+
+Copyright (c) 2001 Benjamin Trott.  All rights reserved.  This program
+is free software; you can redistribute it and/or modify it under the
+same terms as Perl itself.
+
+The full text of the license can be found in the LICENSE file included
+with this module.
 
 =cut
