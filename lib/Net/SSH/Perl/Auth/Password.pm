@@ -1,3 +1,5 @@
+# $Id: Password.pm,v 1.4 2001/02/22 00:55:11 btrott Exp $
+
 package Net::SSH::Perl::Auth::Password;
 
 use strict;
@@ -49,3 +51,41 @@ sub authenticate {
 }
 
 1;
+__END__
+
+=head1 NAME
+
+Net::SSH::Perl::Auth::Password - Password authentication plugin
+
+=head1 SYNOPSIS
+
+    use Net::SSH::Perl::Auth;
+    my $auth = Net::SSH::Perl::Auth->new('Password', $ssh);
+    print "Valid auth" if $auth->authenticate;
+
+=head1 DESCRIPTION
+
+I<Net::SSH::Perl::Auth::Password> performs password authentication
+with a remote sshd server. When you create a new password auth
+object, you give it an I<$ssh> object, which should contain an
+open connection to an ssh daemon, as well as the data that the
+authentication module needs to proceed.
+
+The I<authenticate> method will enter into a dialog with the
+server. For password authentication, all that needs to be done
+is to send a password (encrypted by the standard SSH encryption
+layer) to the server, and wait for its response. If the I<$ssh>
+object doesn't already have a password that you've given it,
+I<Net::SSH::Perl::Auth::Password> will check to see if you're
+in an interactive session (see the docs for I<Net::SSH::Perl>),
+and if so will issue a prompt, asking you to enter your password.
+If the session is not interactive (if it's in batch mode), we
+send a blank password to comply with the protocol, but odds are
+the authentication will then fail.
+
+=head1 AUTHOR & COPYRIGHTS
+
+Please see the Net::SSH::Perl manpage for author, copyright,
+and license information.
+
+=cut

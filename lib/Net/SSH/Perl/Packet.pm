@@ -1,3 +1,5 @@
+# $Id: Packet.pm,v 1.4 2001/02/21 23:50:41 btrott Exp $
+
 package Net::SSH::Perl::Packet;
 
 use strict;
@@ -15,7 +17,7 @@ sub new {
     unless ($pack->{data}) {
         $pack->{data} = Net::SSH::Perl::Buffer->new;
         if ($pack->{type}) {
-            $pack->{data}->put_char(pack "c", $pack->{type});
+            $pack->{data}->put_int8($pack->{type});
         }
     }
     $pack;
@@ -109,10 +111,10 @@ sub send {
     #}
 
     my $crc = _crc32($buffer->bytes);
-    $buffer->put_32bit($crc);
+    $buffer->put_int32($crc);
 
     my $output = Net::SSH::Perl::Buffer->new;
-    $output->put_32bit($len);
+    $output->put_int32($len);
     my $data = $cipher ?
         $cipher->encrypt($buffer->bytes) : $buffer->bytes;
     $output->put_chars($data);
@@ -260,12 +262,9 @@ Refer to the I<Net::SSH::Perl::Buffer> documentation
 (the I<GET AND PUT METHODS> section) for more details
 on those methods.
 
-=head1 AUTHOR
+=head1 AUTHOR & COPYRIGHTS
 
-Benjamin Trott, ben@rhumba.pair.com
-
-=head1 COPYRIGHT
-
-(C) 2001 Benjamin Trott. All rights reserved.
+Please see the Net::SSH::Perl manpage for author, copyright,
+and license information.
 
 =cut

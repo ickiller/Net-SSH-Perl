@@ -1,3 +1,5 @@
+# $Id: Cipher.pm,v 1.3 2001/02/22 00:04:09 btrott Exp $
+
 package Net::SSH::Perl::Cipher;
 
 use strict;
@@ -216,12 +218,9 @@ text and return the decrypted string.
 
 =back
 
-=head1 AUTHOR
+=head1 AUTHOR & COPYRIGHTS
 
-Benjamin Trott, ben@rhumba.pair.com
-
-=head1 COPYRIGHT
-
-(C) 2001 Benjamin Trott. All rights reserved.
+Please see the Net::SSH::Perl manpage for author, copyright,
+and license information.
 
 =cut

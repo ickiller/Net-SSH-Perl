@@ -1,3 +1,5 @@
+# $Id: Auth.pm,v 1.4 2001/02/22 01:26:47 btrott Exp $
+
 package Net::SSH::Perl::Auth;
 
 use strict;
@@ -108,6 +110,87 @@ the authentication method classes. In addition, it defines
 a set of utility methods that can be called either as
 functions or object methods.
 
+=head1 UTILITY METHODS
+
+=head2 supported( [ $auth_id [, $server_supports ] ])
+
+Without arguments, returns a reference to an array of
+auth methods supported by I<Net::SSH::Perl>. These are methods
+that have working Net::SSH::Perl::Auth:: implementations,
+essentially.
+
+With one argument I<$auth_id>, returns a true value if
+that auth method is supported by I<Net::SSH::Perl>, and
+false otherwise.
+
+With two arguments, I<$auth_id> and I<$server_supports>,
+returns true if the auth represented by I<$auth_id>
+is supported both by I<Net::SSH::Perl> and by the sshd
+server. The list of methods supported by the server
+should be in I<$server_supports>, a bit mask sent
+from the server during the session identification
+phase.
+
+Can be called either as a non-exported function, i.e.
+
+    my $i_support = Net::SSH::Perl::Auth::supported();
+
+or as an object method of a I<Net::SSH::Perl::Auth>
+object, or an object of a subclass (in which case
+the first argument should be I<$server_supports>,
+not the I<$auth_id>):
+
+    if ($auth->supported($server_supports)) {
+        print "Server supports auth method $auth";
+    }
+
+=head2 id( [ $auth_name ] )
+
+Translates an auth method name into an ID (suitable
+for sending to the sshd server, for example).
+
+If given I<$auth_name> translates that name into
+the corresponding ID. If called as an object method,
+translates the object's auth class name into the
+ID.
+
+=head2 name( [ $auth_id ] )
+
+Translates an auth method ID into a name.
+
+If given I<$auth_id> translates that ID into the
+corresponding name. If called as an object method,
+returns the (stripped) object's auth class name;
+for example, if the object were of type
+I<Net::SSH::Perl::Auth::Rhosts>, I<name> would return
+I<Rhosts>.
+
+=head2 auth_order()
+
+Returns a reference to an array containing auth method
+IDs. These IDs describe the order in which authentication
+should be tested against the server. So, for example, if
+the array listed (2, 4, 3), then the client should test:
+RSA, then Rhosts-RSA, then Password authentication.
+
+=head1 AUTH USAGE
+
+=head2 Net::SSH::Perl::Auth->new($auth_name, $ssh)
+
+Instantiates a new auth object of the type
+I<$auth_name>, and gives it the I<Net::SSH::Perl>
+object I<$ssh>, which should contain an open
+connetion to an sshd server.
+
+Returns the auth object, which will be blessed into
+the actual auth subclass.
+
+=head2 $valid = $auth->authenticate()
+
+Talks to the sshd server to authenticate the user;
+if valid, returns true, and if invalid, returns
+false.
+
 =head1 AUTH DEVELOPMENT
 
 Classes implementing an authentication method must implement
@@ -130,12 +213,9 @@ object.
 
 Returns 1 if the authentication is successful, 0 otherwise.
 
-=head1 AUTHOR
+=head1 AUTHOR & COPYRIGHTS
 
-Benjamin Trott, ben@rhumba.pair.com
-
-=head1 COPYRIGHT
-
-(C) 2001 Benjamin Trott. All rights reserved.
+Please see the Net::SSH::Perl manpage for author, copyright,
+and license information.
 
 =cut

@@ -1,7 +1,8 @@
-#
+# $Id: CBC.pm,v 1.3 2001/02/22 00:03:09 btrott Exp $
+
+# This code is based in part on the Systemics Crypt::CBC.
 # Parts copyright (C) 1995, 1996 Systemics Ltd (http://www.systemics.com/)
 # All rights reserved.
-#
 
 package Net::SSH::Perl::Cipher::CBC;
 use strict;
@@ -53,3 +54,29 @@ sub decrypt {
 }
 
 1;
+__END__
+
+=head1 NAME
+
+Net::SSH::Perl::Cipher::CBC - CBC Implementation
+
+=head1 SYNOPSIS
+
+    use Net::SSH::Cipher::CBC;
+    my $cbc = Net::SSH::Cipher::CBC->new($cipher_obj);
+    print $cbc->encrypt($plaintext);
+
+=head1 DESCRIPTION
+
+I<Net::SSH::Perl::Cipher::CBC> provides a CBC (cipher
+block chaining) implementation for SSH encryption ciphers.
+
+=head1 AUTHOR & COPYRIGHTS
+
+This code is based in part on the I<Crypt::CBC> code
+originally developed by Systemics Ltd.
+
+Please see the Net::SSH::Perl manpage for author, copyright,
+and license information.
+
+=cut

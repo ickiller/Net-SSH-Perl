@@ -1,3 +1,5 @@
+# $Id: Makefile.PL,v 1.9 2001/02/22 00:08:43 btrott Exp $
+
 use ExtUtils::MakeMaker qw(prompt WriteMakefile);
 use strict;
 

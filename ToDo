@@ -1,7 +1,10 @@
-Is there any way to use Rhosts-RSA auth without running as root?
+$Id: ToDo,v 1.7 2001/02/22 00:11:43 btrott Exp $
 
-Add option for setting RSA identity files.
+Is there any way to use Rhosts-RSA auth without running as root?
 
 Add more tests to the test suite.
 
 Try grabbing configuration info from user and system config files.
+
+Allow users to register handlers for specific packet types for
+use in the client loop.

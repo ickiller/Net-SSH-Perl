@@ -1,11 +1,13 @@
 #!/usr/bin/perl -w
+# $Id: pssh,v 1.4 2001/02/22 04:38:58 btrott Exp $
+
 use strict;
 
 use Net::SSH::Perl;
-use Getopt::Std;
+use Getopt::Long;
 
 my %opts;
-getopts("c:l:p:v", \%opts);
+GetOptions(\%opts, "c=s", "l=s", "p=i", "i=s@", "v");
 my($host, $cmd) = @ARGV;
 
 die "usage: pssh [options] hostname command"
@@ -15,7 +17,8 @@ my $ssh = Net::SSH::Perl->new($host,
     interactive => 1,
     cipher => $opts{c},
     port => $opts{p},
-    debug => $opts{v});
+    debug => $opts{v},
+    identity_files => $opts{i} || []);
 $ssh->login($opts{l});
 my($out, $err, $exit) = $ssh->cmd($cmd);
 print $out;

@@ -1,9 +1,6 @@
-This is Net::SSH::Perl 0.51.
+$Id: README,v 1.8 2001/02/22 04:31:04 btrott Exp $
 
-PROGRESS
-
-Features added in version 0.51:
-    * Blowfish support has now been added.
+This is Net::SSH::Perl.
 
 PREREQUISITES
 
@@ -11,45 +8,43 @@ PREREQUISITES
     * String::CRC32 (1.2)
     * Digest::MD5
 
-ENCRYPTION CIPHERS
-
-Net::SSH::Perl currently supports 4 encryption ciphers: IDEA, DES,
-3DES, and Blowfish.
-
-In order to use the ciphers you'll need to install the
-corresponding Crypt:: module. I've not listed any of these
-modules as prerequisites above, but during the installation
-process you'll be prompted to add some of these modules
-so that you can use the encryption.
-
 INSTALLATION
 
-Net::SSH::Perl installation is relatively straightforward. The
-only slightly complicated bit is that you'll need to install
-Crypt:: modules depending on which ciphers you wish to use.
-This has been made quite easy if you use the CPAN shell to
-install Net::SSH::Perl; the installation process will ask you which
-ciphers you wish to have installed, and will then add the
-Crypt:: modules as prerequisites. The CPAN shell should then
-install them automatically.
+Net::SSH::Perl installation is relatively straightforward. If
+your CPAN shell is set up, you should just be able to do
 
-Even if you're not using the CPAN shell, the installation script
-tries to make things easy by detecting which modules you'll need
-to install, then loading the CPAN shell and installing them,
-if you want.
+    % perl -MCPAN -e 'install Net::SSH::Perl'
 
-If you don't like either of those options you'll need to do the
-installations manually. In which case you'll need to install
-Math::GMP (version 1.04 or greater), String::CRC32 (version 1.2
-or greater), and Digest::MD5, plus any additional Crypt:: modules
-you wish to use.
+If you don't like that, you can download the distribution; the
+latest version on CPAN can be found in
 
-Net::SSH::Perl itself installs like a Perl module should:
+    ftp://ftp.cpan.org/pub/CPAN/authors/id/B/BT/BTROTT/
+
+Download it, unpack it, then build it as per the usual:
 
     % perl Makefile.PL
-    % make && make test && make install
+    % make && make test
 
-SUPPORT
+Then install it:
+
+    % make install
+
+If you have problems, read on.
+
+The only slightly complicated bit in the installation is
+that you'll need to install Crypt:: modules depending on
+which ciphers you wish to use. Much work has gone into
+making this simple; you should be asked a question about
+which ciphers you'll use, and the modules should be
+downloaded and installed automatically.
+
+If it doesn't work, or if you don't like this option, you'll
+need to do the installations manually. In which case you'll
+need to install Math::GMP (version 1.04 or later),
+String::CRC32 (version 1.2 or later), and Digest::MD5, plus
+any additional Crypt:: modules you wish to use.
+
+SAMPLES/TUTORIALS
 
 Take a look at the scripts in eg/ for help and examples of
 using Net::SSH::Perl. eg/cmd.pl is just a simple example of
@@ -60,11 +55,4 @@ of the command line options that the actual tools support;
 obviously, only those options supported by Net::SSH::Perl are
 supported by pssh and pscp.
 
-If you have any questions, code samples, bug reports, or
-feedback, please email them to:
-
-    ben@rhumba.pair.com
-
-COPYRIGHT
-
-(C) 2001 Benjamin Trott. All rights reserved.
+Benjamin Trott / ben@rhumba.pair.com

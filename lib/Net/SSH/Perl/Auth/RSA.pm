@@ -1,3 +1,5 @@
+# $Id: RSA.pm,v 1.5 2001/02/22 00:55:11 btrott Exp $
+
 package Net::SSH::Perl::Auth::RSA;
 
 use strict;
@@ -23,11 +25,22 @@ sub new {
 
 sub authenticate {
     my $auth = shift;
-    my($packet);
     my $ssh = $auth->{ssh};
 
-    my($public_key, $comment, $private_key, $auth_file);
-    $auth_file = "$ENV{HOME}/.ssh/identity";
+    my $if = $ssh->{identity_files} || [];
+    push @$if, "$ENV{HOME}/.ssh/identity" unless @$if;
+
+    for my $f (@$if) {
+        return 1 if $auth->_authenticate($f);
+    }
+}
+
+sub _authenticate {
+    my($auth, $auth_file) = @_;
+    my $ssh = $auth->{ssh};
+    my($packet);
+
+    my($public_key, $comment, $private_key);
     eval {
         ($public_key, $comment) = _load_public_key($auth_file);
     };
@@ -97,3 +110,56 @@ sub authenticate {
 }
 
 1;
+__END__
+
+=head1 NAME
+
+Net::SSH::Perl::Auth::RSA - Perform RSA authentication
+
+=head1 SYNOPSIS
+
+    use Net::SSH::Perl::Auth;
+    my $auth = Net::SSH::Perl::Auth->new('RSA', $ssh);
+    print "Valid auth" if $auth->authenticate;
+
+=head1 DESCRIPTION
+
+I<Net::SSH::Perl::Auth::RSA> performs RSA authentication with
+a remote sshd server. When you create a new RSA auth object,
+you give it an I<$ssh> object, which should contain an open
+connection to an ssh daemon, as well as any data that the
+authentication module needs to proceed. In this case, for
+example, the I<$ssh> object might contain a list of RSA
+identity files (see the docs for I<Net::SSH::Perl>).
+
+The I<authenticate> method tries to load the user's public
+and private keys, for each of the files listed as identity
+files. If you haven't listed any identity files,
+F<$ENV{HOME}/.ssh/identity> is used by default. For each
+identity, I<authenticate> enters into a dialog with the sshd
+server.
+
+The client sends the public key to the server, then waits for
+a challenge. Once this challenge is received, the client must
+decrypt the challenge using the private key (loaded from the
+identity file). When loading the private key, you may need
+to enter a passphrase to decrypt the private key itself; first
+I<authenticate> tries to decrypt the key using an empty
+passphrase (which requires no user intervention). If this
+fails, the client checks to see if it's running in an
+interactive session. If so, it queries the user for a
+passphrase, which is then used to decrypt the private key. If
+the session is non-interactive and the private key cannot
+be loaded, the client simply sends a dummy response to the
+RSA challenge, to comply with the SSH protocol.
+
+Otherwise, if the private key has been loaded, and the
+challenge decrypted, the client sends its response to the
+server, then waits for success or failure.
+
+=head1 AUTHOR & COPYRIGHTS
+
+Please see the Net::SSH::Perl manpage for author, copyright,
+and license information.
+
+=cut

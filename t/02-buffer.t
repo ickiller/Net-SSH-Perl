@@ -1,3 +1,5 @@
+# $Id: 02-buffer.t,v 1.4 2001/02/22 00:12:55 btrott Exp $
+
 use strict;
 
 use Test;
@@ -13,8 +15,8 @@ ok($buffer->get_str, "foo");
 $buffer->put_str(0);
 ok($buffer->get_str, 0);
 
-$buffer->put_32bit(999999999);
-ok($buffer->get_32bit, 999999999);
+$buffer->put_int32(999999999);
+ok($buffer->get_int32, 999999999);
 
 $buffer->put_char(pack "c", 2);
 ok(unpack("c", $buffer->get_char), 2);

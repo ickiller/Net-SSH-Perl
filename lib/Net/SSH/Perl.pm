@@ -1,3 +1,5 @@
+# $Id: Perl.pm,v 1.15 2001/02/22 04:23:32 btrott Exp $
+
 package Net::SSH::Perl;
 use strict;
 
@@ -13,7 +15,7 @@ use Socket;
 use Symbol;
 use Math::GMP;
 
-$VERSION = "0.51";
+$VERSION = "0.52";
 
 sub new {
     my $class = shift;
@@ -167,14 +169,14 @@ sub _login {
 
     my %keys;
     for my $which (qw/public host/) {
-        $keys{$which}{bits} = $data->get_32bit;
+        $keys{$which}{bits} = $data->get_int32;
         $keys{$which}{e}    = $data->get_mp_int;
         $keys{$which}{n}    = $data->get_mp_int;
     }
 
-    my $protocol_flags = $data->get_32bit;
-    my $supported_ciphers = $data->get_32bit;
-    my $supported_auth = $data->get_32bit;
+    my $protocol_flags = $data->get_int32;
+    my $supported_ciphers = $data->get_int32;
+    my $supported_auth = $data->get_int32;
 
     $ssh->debug(sprintf "Received server public key (%d bits) and " .
         "host key (%d bits).", $keys{public}{bits}, $keys{host}{bits});
@@ -250,10 +252,10 @@ sub _login {
     $ssh->debug(sprintf "Encryption type: %s", $cipher_name);
 
     $packet = $ssh->packet_start(SSH_CMSG_SESSION_KEY);
-    $packet->put_char(pack "c", $cipher);
+    $packet->put_int8($cipher);
     $packet->put_char($_) for split //, $check_bytes;
     $packet->put_mp_int($skey);
-    $packet->put_32bit(0);    ## No protocol flags.
+    $packet->put_int32(0);    ## No protocol flags.
     $packet->send;
     $ssh->debug("Sent encrypted session key.");
 
@@ -314,7 +316,7 @@ sub cmd {
     my $h = {};
     $h->{+SSH_SMSG_STDOUT_DATA} ||= sub { $stdout .= $_[1]->get_str };
     $h->{+SSH_SMSG_STDERR_DATA} ||= sub { $stderr .= $_[1]->get_str };
-    $h->{+SSH_SMSG_EXITSTATUS}  ||= sub { $exit    = $_[1]->get_32bit };
+    $h->{+SSH_SMSG_EXITSTATUS}  ||= sub { $exit    = $_[1]->get_int32 };
 
     while (1) {
         my $pack = Net::SSH::Perl::Packet->read($ssh);
@@ -378,33 +380,6 @@ Net::SSH::Perl - Perl client Interface to SSH
     $ssh->login($user, $pass);
     my($stdout, $stderr, $exit) = $ssh->cmd($cmd);
 
-=head1 INSTALLATION
-
-I<Net::SSH::Perl> installation is relatively straightforward. The
-only slightly complicated bit is that you'll need to install
-Crypt:: modules depending on which ciphers you wish to use.
-This has been made quite easy if you use the CPAN shell to
-install Net::SSH::Perl; the installation process will ask you which
-ciphers you wish to have installed, and will then add the
-Crypt:: modules as prerequisites. The CPAN shell should then
-install them automatically.
-
-Even if you're not using the CPAN shell, the installation script
-tries to make things easy by detecting which modules you'll need
-to install, then loading the CPAN shell and installing them,
-if you want.
-
-If you don't like either of those options you'll need to do the
-installations manually. In which case you'll need to install
-Math::GMP (version 1.04 or greater), String::CRC32 (version 1.2
-or greater), and Digest::MD5, plus any additional Crypt:: modules
-you wish to use. 
-
-Net::SSH::Perl itself installs like a Perl module should:
-
-    % perl Makefile.PL
-    % make && make test && make install
-
 =head1 DESCRIPTION
 
 I<Net::SSH::Perl> is an all-Perl module implementing an ssh client.
@@ -421,7 +396,7 @@ Of course, I think that the good outweighs the bad (particularly
 since the bad is something that can be improved and worked on),
 and that's why I<Net::SSH::Perl> exists.
 
-=head1 USAGE
+=head1 BASIC USAGE
 
 Usage of I<Net::SSH::Perl> is very simple.
 
@@ -438,9 +413,9 @@ I<new> accepts the following named parameters in I<%params>:
 
 Specifies the name of the encryption cipher that you wish to
 use for this connection. This must be one of the supported
-ciphers (currently, I<IDEA>, I<DES>, and I<DES3>); specifying
-an unsupported cipher is a fatal error. The default cipher
-is I<IDEA>.
+ciphers (currently, I<IDEA>, I<DES>, I<DES3>, and I<Blowfish>);
+specifying an unsupported cipher is a fatal error. The default
+cipher is I<IDEA>.
 
 =item * port
 
@@ -479,6 +454,16 @@ If you don't provide this parameter, and I<Net::SSH::Perl>
 detects that you're running as root, this will automatically
 be set to true. Otherwise it defaults to false.
 
+=item * identity_files
+
+A list of RSA identity files to be used in RSA authentication.
+The value of this argument should be a reference to an array of
+strings, each string identifying the location of an identity
+file.
+
+If you don't provide this, RSA authentication defaults to using
+"$ENV{HOME}/.ssh/identity".
+
 =back
 
 =head2 $ssh->login([ $user [, $password ] ])
@@ -495,7 +480,7 @@ though perhaps it should be). And if you're running in an
 interactive session and you've not provided a password, you'll
 be prompted for one.
 
-=head2 $ssh->cmd($cmd, [ $stdin ])
+=head2 ($out, $err, $exit) = $ssh->cmd($cmd, [ $stdin ])
 
 Runs the command I<$cmd> on the remote server and returns
 the I<stdout>, I<stderr>, and exit status of that
@@ -525,41 +510,101 @@ again.
 This is less than ideal, obviously. Future version of
 I<Net::SSH::Perl> may find ways around that.
 
-=head1 ENCRYPTION CIPHERS
+=head1 ADVANCED METHODS
 
-I<Net::SSH::Perl> currently supports 4 encryption ciphers: IDEA,
-DES, 3DES, and Blowfish.
+Your basic SSH needs will hopefully be met by the methods listed
+above. If they're not, however, you may want to use some of the
+additional methods listed here. Some of these are aimed at
+end-users, while others are probably more useful for actually
+writing an authentication module, or a cipher, etc.
 
-In order to use the ciphers you'll need to install the
-corresponding Crypt:: module. I've not listed any of these
-modules as prerequisites above, but during the installation
-process you'll be prompted to add some of these modules
-so that you can use the encryption. If you're using the CPAN
-shell, the modules should be automatically installed;
-otherwise you'll need to do so yourself.
+=head2 $ssh->sock
 
-=head1 AUTHOR
+Returns the socket connection to sshd. If your client is not
+connected, dies.
 
-Benjamin Trott, ben@rhumba.pair.com
+=head2 $ssh->debug($msg)
+
+If debugging is turned on for this session (see the I<debug>
+parameter to the I<new> method, above), writes I<$msg> to
+C<STDERR>. Otherwise nothing is done.
+
+=head2 $ssh->in_leftover([ $leftover ])
+
+"Input leftover"; you can use this to store the data left over
+from the last socket read, the data that wasn't read into a
+packet on the client side. This is needed because we read as
+much data as we can (up to 8192) from the remote socket; not all
+of the data we read comprises one single packet, however. Your
+client code, though, will most likely have asked for one
+single packet; so we need some way to store the leftover data
+between reads.
+
+If passed I<$leftover>, sets the internal leftover buffer.
+
+Returns the contents of the leftover buffer.
+
+=head2 $ssh->set_cipher($cipher_name)
+
+Sets the cipher for the SSH session I<$ssh> to I<$cipher_name>
+(which must be a valid cipher name), and turns on encryption
+for that session.
+
+=head2 $ssh->send_cipher
+
+Returns the "send" cipher object. This is the object that encrypts
+outgoing data.
+
+If it's not defined, encryption is not turned on for the session.
+
+=head2 $ssh->receive_cipher
+
+Returns the "receive" cipher object. This is the object that
+decrypts incoming data.
+
+If it's not defined, encryption is not turned on for the session.
+
+NOTE: the send and receive ciphers and two I<different> objects,
+each with its own internal state (initialization vector, in
+particular). Thus they cannot be interchanged.
+
+=head2 $ssh->session_key
+
+Returns the session key, which is simply 32 bytes of random
+data and is used as the encryption/decryption key.
+
+=head2 $ssh->session_id
+
+Returns the session ID, which is generated from the server's
+host and server keys, and from the check bytes that it sends
+along with the keys. The server may require the session ID to
+be passed along in other packets, as well (for example, when
+responding to RSA challenges).
+
+=head2 $packet = $ssh->packet_start($packet_type)
+
+Starts building a new packet of type I<$packet_type>. This is
+just a handy method for lazy people. Internally it calls
+I<Net::SSH::Perl::Packet::new>, so take a look at those docs
+for more details.
 
 =head1 SUPPORT
 
-Take a look at the scripts in F<eg/> for help and examples of
-using Net::SSH::Perl. F<eg/cmd.pl> is just a simple example of
-some of the functionality, F<eg/pssh> is an ssh-like client
-for running commands on other servers, and F<eg/pscp> is a very
-simple scp-like script. Both pssh and pscp support a subset
-of the command line options that the actual tools support;
-obviously, only those options supported by Net::SSH::Perl are
-supported by pssh and pscp.
+For samples/tutorials, take a look at the scripts in F<eg/> in
+the distribution directory.
 
 If you have any questions, code samples, bug reports, or
 feedback, please email them to:
 
     ben@rhumba.pair.com
 
-=head1 COPYRIGHT
+=head1 AUTHOR & COPYRIGHT
 
-(C) 2001 Benjamin Trott. All rights reserved.
+Benjamin Trott, ben@rhumba.pair.com
+
+Except where otherwise noted, Net::SSH::Perl is Copyright
+2001 Benjamin Trott. All rights reserved. Net::SSH::Perl is
+free software; you may redistribute it and/or modify it under
+the same terms as Perl itself.
 
 =cut

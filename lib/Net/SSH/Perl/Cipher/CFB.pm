@@ -1,7 +1,8 @@
-#
-# Copyright (C) 1995, 1996 Systemics Ltd (http://www.systemics.com/)
+# $Id: CFB.pm,v 1.3 2001/02/22 00:03:09 btrott Exp $
+
+# This code based in part on the Systemics Crypt::CFB.
+# Parts Copyright (C) 1995, 1996 Systemics Ltd (http://www.systemics.com/)
 # All rights reserved.
-#
 
 package Net::SSH::Perl::Cipher::CFB;
 use strict;
@@ -10,7 +11,7 @@ use Carp qw/croak/;
 
 sub new {
     my($class, $ciph) = @_;
-    my $cfb = bless {
+    bless {
         cipher    => $ciph,
         iv        => "\0" x $ciph->blocksize,
     }, $class;
@@ -19,8 +20,6 @@ sub new {
 sub encrypt {
     my $cfb = shift;
     my $data = shift;
-    croak "Data length must be a multiple of 8"
-        if length($data) % 8;
 
     my $retval = "";
     my $iv = $cfb->{iv};
@@ -39,8 +38,6 @@ sub encrypt {
 sub decrypt {
     my $cfb = shift;
     my $data = shift;
-    croak "Data length must be a multiple of 8"
-        if length($data) % 8;
 
     my $retval = "";
     my $iv = $cfb->{iv};
@@ -57,3 +54,29 @@ sub decrypt {
 }
 
 1;
+__END__
+
+=head1 NAME
+
+Net::SSH::Perl::Cipher::CFB - CFB Implementation
+
+=head1 SYNOPSIS
+
+    use Net::SSH::Cipher::CFB;
+    my $cbc = Net::SSH::Cipher::CFB->new($cipher_obj);
+    print $cbc->encrypt($plaintext);
+
+=head1 DESCRIPTION
+
+I<Net::SSH::Perl::Cipher::CFB> provides a CFB (cipher
+feedback) implementation for SSH encryption ciphers.
+
+=head1 AUTHOR & COPYRIGHTS
+
+This code is based in part on the I<Crypt::CFB> code
+originally developed by Systemics Ltd.
+
+Please see the Net::SSH::Perl manpage for author, copyright,
+and license information.
+
+=cut

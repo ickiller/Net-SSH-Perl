@@ -1,3 +1,5 @@
+# $Id: Buffer.pm,v 1.4 2001/02/22 00:04:09 btrott Exp $
+
 package Net::SSH::Perl::Buffer;
 use strict;
 
@@ -48,26 +50,38 @@ sub insert_padding {
     $buf->bytes(0, 0, $junk);
 }
 
-sub get_16bit {
+sub get_int8 {
+    my $buf = shift;
+    my $off = defined $_[0] ? shift : $buf->{offset};
+    $buf->{offset} += 1;
+    unpack "c", $buf->bytes($off, 1);
+}
+
+sub put_int8 {
+    my $buf = shift;
+    $buf->{buf} .= pack "c", $_[0];
+}
+
+sub get_int16 {
     my $buf = shift;
     my $off = defined $_[0] ? shift : $buf->{offset};
     $buf->{offset} += 2;
     unpack "n", $buf->bytes($off, 2);
 }
 
-sub put_16bit {
+sub put_int16 {
     my $buf = shift;
     $buf->{buf} .= pack "n", $_[0];
 }
 
-sub get_32bit {
+sub get_int32 {
     my $buf = shift;
     my $off = defined $_[0] ? shift : $buf->{offset};
     $buf->{offset} += 4;
     unpack "N", $buf->bytes($off, 4);
 }
 
-sub put_32bit {
+sub put_int32 {
     my $buf = shift;
     $buf->{buf} .= pack "N", $_[0];
 }
@@ -88,7 +102,7 @@ sub put_char {
 sub get_str {
     my $buf = shift;
     my $off = defined $_[0] ? shift : $buf->{offset};
-    my $len = $buf->get_32bit;
+    my $len = $buf->get_int32;
     $buf->{offset} += $len;
     $buf->bytes($off+4, $len);
 }
@@ -97,7 +111,7 @@ sub put_str {
     my $buf = shift;
     my $str = shift;
     $str = "" unless defined $str;
-    $buf->put_32bit(CORE::length($str));
+    $buf->put_int32(CORE::length($str));
     $buf->{buf} .= $str;
 }
 
@@ -120,7 +134,7 @@ sub put_mp_int {
     my $tmp = Math::GMP::get_str_gmp($int, 16);
     $tmp = "0$tmp" if CORE::length($tmp) % 2;
     $tmp =~ s/(..)/ chr hex $1 /ge;
-    $buf->put_16bit($bits);
+    $buf->put_int16($bits);
     $buf->put_chars($tmp);
 }
 
@@ -137,10 +151,10 @@ Net::SSH::Perl::Buffer - Low-level read/write buffer class
     my $buffer = Net::SSH::Perl::Buffer->new;
 
     ## Add a 32-bit integer.
-    $buffer->put_32bit(10932930);
+    $buffer->put_int32(10932930);
 
     ## Get it back.
-    my $int = $buffer->get_32bit;
+    my $int = $buffer->get_int32;
 
 =head1 DESCRIPTION
 
@@ -168,25 +182,37 @@ use them explicitly.
 
 All of the I<get_*> and I<put_*> methods respect the
 internal offset state in the buffer object. This means
-that, for example, if you call I<get_16bit> twice in a
+that, for example, if you call I<get_int16> twice in a
 row, you can be ensured that you'll get the next two
 16-bit integers in the buffer. You don't need to worry
 about the number of bytes a certain piece of data takes
 up, for example.
 
-=head2 $buffer->get_16bit
+=head2 $buffer->get_int8
+
+Returns the next 8-bit integer from the buffer (which
+is really just the ASCII code for the next character/byte
+in the buffer).
+
+=head2 $buffer->put_int8
+
+Appends an 8-bit integer to the buffer (which is really
+just the character corresponding to that integer, in
+ASCII).
+
+=head2 $buffer->get_int16
 
 Returns the next 16-bit integer from the buffer.
 
-=head2 $buffer->put_16bit($integer)
+=head2 $buffer->put_int16($integer)
 
 Appends a 16-bit integer to the buffer.
 
-=head2 $buffer->get_32bit
+=head2 $buffer->get_int32
 
 Returns the next 32-bit integer from the buffer.
 
-=head2 $buffer->put_32bit($integer)
+=head2 $buffer->put_int32($integer)
 
 Appends a 32-bit integer to the buffer.
 
@@ -292,12 +318,9 @@ A helper method: pads out the buffer so that the length
 of the transferred packet will be evenly divisible by
 8, which is a requirement of the SSH protocol.
 
-=head1 AUTHOR
+=head1 AUTHOR & COPYRIGHTS
 
-Benjamin Trott, ben@rhumba.pair.com
-
-=head1 COPYRIGHT
-
-(C) 2001 Benjamin Trott. All rights reserved.
+Please see the Net::SSH::Perl manpage for author, copyright,
+and license information.
 
 =cut
