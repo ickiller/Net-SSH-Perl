@@ -1,4 +1,4 @@
-# $Id: DSA.pm,v 1.21 2001/05/10 23:50:26 btrott Exp $
+# $Id: DSA.pm,v 1.22 2001/05/11 22:10:41 btrott Exp $
 
 package Net::SSH::Perl::Key::DSA;
 use strict;
@@ -57,12 +57,13 @@ sub size { $_[0]->{dsa}->size }
 
 sub read_private {
     my $class = shift;
-    my($key_file, $passphrase, $datafellows) = @_;
+    my($key_file, $passphrase, $datafellows, $keytype) = @_;
+    $keytype ||= 'PEM';
 
     my $key = $class->new(undef, $datafellows);
     $key->{dsa} = Crypt::DSA::Key->new(
                      Filename => $key_file,
-                     Type     => 'PEM',
+                     Type     => $keytype,
                      Password => $passphrase
             );
     return unless $key->{dsa};

@@ -1,6 +1,11 @@
-$Id: Changes,v 1.47 2001/05/11 18:42:28 btrott Exp $
+$Id: Changes,v 1.48 2001/05/11 22:17:15 btrott Exp $
 
 Revision history for Net::SSH::Perl
+
+1.11  2001.05.11
+    - Auto-detect SSH2 private key files as identity files and read
+      them accordingly. Thanks to Matt Good for the original idea
+      of reading SSH2 key files, as well as the patch.
 
 1.10  2001.05.11
     - Added Key::RSA, an SSH2 key implementation, using Crypt::RSA;

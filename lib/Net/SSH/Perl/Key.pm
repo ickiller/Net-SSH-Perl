@@ -1,4 +1,4 @@
-# $Id: Key.pm,v 1.16 2001/05/11 00:52:09 btrott Exp $
+# $Id: Key.pm,v 1.17 2001/05/11 22:10:40 btrott Exp $
 
 package Net::SSH::Perl::Key;
 use strict;
@@ -62,8 +62,9 @@ BEGIN {
 
 use vars qw( %OBJ_MAP );
 %OBJ_MAP = (
-    'DSA PRIVATE KEY' => 'DSA',
-    'RSA PRIVATE KEY' => 'RSA',
+    'DSA PRIVATE KEY'  => [ 'DSA' ],
+    'SSH2 ENCRYPTED PRIVATE KEY' => [ 'DSA', [ 'SSH2' ] ],
+    'RSA PRIVATE KEY'  => [ 'RSA' ],
 );
 
 sub read_private_pem {
@@ -74,12 +75,14 @@ sub read_private_pem {
     chomp(my $desc = <FH>);
     close FH;
     return unless $desc;
-    my($object) = $desc =~ /^-----BEGIN ([^\n\-]+)-----$/;
-    $class = $OBJ_MAP{$object} or return;
-    $class = __PACKAGE__ . "::" . $class;
+    my($object) = $desc =~ /^-----?\s?BEGIN ([^\n\-]+)\s?-?----$/;
+    $object =~ s/\s*$//;
+    my $rec = $OBJ_MAP{$object} or return;
+    $class = __PACKAGE__ . "::" . $rec->[0];
     eval "use $class;";
     die "Key class '$class' is unsupported: $@" if $@;
-    $class->read_private(@_);
+    my @args = $rec->[1] ? @{ $rec->[1] } : ();
+    $class->read_private(@_, @args);
 }
 
 sub init;
