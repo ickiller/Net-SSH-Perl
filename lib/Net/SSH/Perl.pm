@@ -1,4 +1,4 @@
-# $Id: Perl.pm,v 1.48 2001/03/22 01:46:21 btrott Exp $
+# $Id: Perl.pm,v 1.50 2001/03/23 00:56:28 btrott Exp $
 
 package Net::SSH::Perl;
 use strict;
@@ -24,7 +24,7 @@ eval {
     $HOSTNAME = hostname();
 };
 
-$VERSION = "0.65";
+$VERSION = "0.66";
 
 sub new {
     my $class = shift;
@@ -201,6 +201,9 @@ sub _disconnect {
     $packet->put_str("@_") if @_;
     $packet->send;
     $ssh->{session} = {};
+    for my $key (qw( _cmd_stdout _cmd_stderr _cmd_exit )) {
+        $ssh->{$key} = "";
+    }
 }
 
 sub fatal_disconnect {
@@ -481,15 +484,16 @@ sub cmd {
         $packet->send;
     }
 
-    my($stdout, $stderr, $exit);
     $ssh->register_handler(SSH_SMSG_STDOUT_DATA,
-        sub { $stdout .= $_[1]->get_str });
+        sub { $ssh->{_cmd_stdout} .= $_[1]->get_str });
     $ssh->register_handler(SSH_SMSG_STDERR_DATA,
-        sub { $stderr .= $_[1]->get_str });
+        sub { $ssh->{_cmd_stderr} .= $_[1]->get_str });
     $ssh->register_handler(SSH_SMSG_EXITSTATUS,
-        sub { $exit = $_[1]->get_int32 });
+        sub { $ssh->{_cmd_exit} = $_[1]->get_int32 });
 
     $ssh->_start_interactive(1);
+    my($stdout, $stderr, $exit) =
+        map $ssh->{"_cmd_$_"}, qw( stdout stderr exit );
 
     $ssh->_disconnect;
     ($stdout, $stderr, $exit);

@@ -1,8 +1,13 @@
-$Id: Changes,v 1.27 2001/03/22 01:48:37 btrott Exp $
+$Id: Changes,v 1.29 2001/03/23 00:56:09 btrott Exp $
 
 Revision history for Net::SSH::Perl
 
-0.65
+0.66  2001.03.22
+    - fixed bug where calling 'cmd' more than once wouldn't get
+      anything in returned stdout, stderr, or exit status. Thanks
+      to John Tyrrell (tyrrell@verio.net) for the spot.
+
+0.65  2001.03.21
     - fixed bug with "Cipher <name>" in config file or 'options'
       param. This wasn't mapping ssh cipher names to Net::SSH::Perl
       cipher names (ie. should map 'idea' => 'IDEA'). Thanks to
