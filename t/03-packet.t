@@ -1,4 +1,4 @@
-# $Id: 03-packet.t,v 1.5 2001/03/02 08:59:14 btrott Exp $
+# $Id: 03-packet.t,v 1.6 2001/03/08 20:47:29 btrott Exp $
 
 use strict;
 
@@ -71,6 +71,7 @@ use Carp qw/croak/;
 
 sub TIEHANDLE { bless { buf => "", offset => 0 }, shift; }
 sub WRITE { $_[0]->{buf} .= $_[1] }
+sub FILENO { 6 }
 
 sub READ {
     croak "Nothing to read" unless $_[0]->{buf};

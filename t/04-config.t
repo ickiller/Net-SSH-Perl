@@ -8,7 +8,7 @@ use Net::SSH::Perl;
 use Net::SSH::Perl::Config;
 
 use Test;
-BEGIN { plan tests => 19 };
+BEGIN { plan tests => 23 };
 
 my($cfg, $ssh);
 
@@ -34,6 +34,11 @@ ok($cfg);
 $cfg->read_config($CFG_FILE);
 ok($cfg->get('port'), 22);
 
+## Test whether we can use merge_directive to merge in a directive
+## in a string.
+$cfg->merge_directive("RhostsAuthentication no");
+ok($cfg->get('auth_rhosts'), 0);
+
 ## Test grabbing a different Host record from the config file.
 $cfg = Net::SSH::Perl::Config->new("dummy");
 ok($cfg);
@@ -57,3 +62,12 @@ ok($ssh->{host}, 'foo.bar.com');
 ## And that constructor overrides work here, as well.
 $ssh = Net::SSH::Perl->new("foo", user_config => $CFG_FILE, port => 22);
 ok($ssh->config->get('port'), 22);
+
+## And now test whether we can set additional options through
+## Net::SSH::Perl constructor; and that they override config
+## file.
+$ssh = Net::SSH::Perl->new("foo", user_config => $CFG_FILE, options => [
+    "Port 22", "RhostsAuthentication no", "BatchMode no" ]);
+ok($ssh->config->get('port'), 22);
+ok($ssh->config->get('auth_rhosts'), 0);
+ok($ssh->config->get('interactive'), 1);

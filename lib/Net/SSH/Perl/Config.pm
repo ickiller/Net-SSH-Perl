@@ -1,4 +1,4 @@
-# $Id: Config.pm,v 1.6 2001/03/03 05:43:12 btrott Exp $
+# $Id: Config.pm,v 1.8 2001/03/08 20:33:01 btrott Exp $
 
 package Net::SSH::Perl::Config;
 use strict;
@@ -58,6 +58,15 @@ sub read_config {
         $code->($cfg, $key, $args);
     }
     close FH;
+}
+
+sub merge_directive {
+    my($cfg, $line) = @_;
+    my($key, $args) = $line =~ /^\s*(\S+)\s+(.+)$/;
+    return unless $key && $args;
+
+    my $code = $DIRECTIVES{$key}[0] or return;
+    $code->($cfg, $key, $args);
 }
 
 sub _host {
@@ -168,6 +177,15 @@ are overriden by those passed in to the constructor.
 Furthermore, if you're reading from several config files
 in sequence, values read from the first files will override
 those read from the second, third, fourth, etc. files.
+
+=head2 $cfg->merge_directive($line)
+
+Merges the directive option I<$line> into the configuration
+settings in I<$cfg>. I<$line> should be an option in the format
+used in the config file, eg. I<"BatchMode yes">. This is
+useful for merging in directives that are not necessarily
+in the config file, similar to how the B<-o> option works
+in the I<ssh> command line program.
 
 =head2 $cfg->get($key)
 

@@ -1,4 +1,4 @@
-# $Id: Perl.pm,v 1.34 2001/03/07 04:18:02 btrott Exp $
+# $Id: Perl.pm,v 1.37 2001/03/08 20:54:09 btrott Exp $
 
 package Net::SSH::Perl;
 use strict;
@@ -22,7 +22,7 @@ use Carp qw( croak );
 use Sys::Hostname;
 $HOSTNAME = hostname();
 
-$VERSION = "0.61";
+$VERSION = "0.62";
 
 sub new {
     my $class = shift;
@@ -42,8 +42,17 @@ sub _init {
     my $user_config = delete $arg{user_config} || "$ENV{HOME}/.ssh/config";
     my $sys_config  = delete $arg{sys_config}  || "/etc/ssh_config";
 
+    my $directives = delete $arg{options} || [];
+
     my $cfg = Net::SSH::Perl::Config->new($ssh->{host}, %arg);
     $ssh->{config} = $cfg;
+
+    # Merge config-format directives given through "options"
+    # (just like -o option to ssh command line). Do this before
+    # reading config files so we override files.
+    for my $d (@$directives) {
+        $cfg->merge_directive($d);
+    }
 
     for my $f (($user_config, $sys_config)) {
         $ssh->debug("Reading configuration data $f");
@@ -701,6 +710,19 @@ to 0), this will be set automatically to 1. In other words,
 you probably won't need to use this, often.
 
 The default is 1 if you're starting up a shell, and 0 otherwise.
+
+=item * options
+
+Used to specify additional options to the configuration settings;
+useful for specifying options for which there is no separate
+constructor argument. This is analogous to the B<-o> command line
+flag to the I<ssh> program.
+
+If used, the value should be a reference to a list of option
+directives in the format used in the config file. For example:
+
+    my $ssh = Net::SSH::Perl->new("host", options => [
+        "BatchMode yes", "RhostsAuthentication no" ]);
 
 =back
 
