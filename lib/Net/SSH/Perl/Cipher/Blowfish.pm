@@ -1,4 +1,4 @@
-# $Id: Blowfish.pm,v 1.13 2001/05/02 21:59:23 btrott Exp $
+# $Id: Blowfish.pm,v 1.14 2001/05/08 02:55:40 btrott Exp $
 
 package Net::SSH::Perl::Cipher::Blowfish;
 
@@ -34,7 +34,7 @@ sub blocksize { 8 }
 sub init {
     my $ciph = shift;
     my($key, $iv, $is_ssh2) = @_;
-    my $blow = $BF_CLASS->new(substr $key, 0, 16);
+    my $blow = $BF_CLASS->new($is_ssh2 ? substr($key, 0, 16) : $key);
     $ciph->{cbc} = Net::SSH::Perl::Cipher::CBC->new($blow,
         $iv ? substr($iv, 0, 8) : undef);
     $ciph->{is_ssh2} = defined $is_ssh2 ? $is_ssh2 : 0;

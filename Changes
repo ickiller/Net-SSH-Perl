@@ -1,11 +1,19 @@
-$Id: Changes,v 1.40 2001/05/05 03:39:03 btrott Exp $
+$Id: Changes,v 1.42 2001/05/08 02:56:39 btrott Exp $
 
 Revision history for Net::SSH::Perl
+
+1.06  2001.05.07
+    - Fixed bug with Blowfish cipher in SSH1 protocol; symptom would
+      be "Corrupted check bytes on input" after sending the
+      RSA-encrypted session key, and turning on encryption.
+      This was due to an incorrect key length when setting the
+      Blowfish key. Thanks to Dan Berger (djberge@uswest.com) for
+      the spot.
 
 1.05  2001.05.04
     - Fixed bug when entering password at prompt; entering an
       incorrect password more than three times would cause the
-      authentication to hang. Thanks go Matt Good (mgood@nextdoor.com)
+      authentication to hang. Thanks to Matt Good (mgood@nextdoor.com)
       for the spot and a fix.
 
 1.04  2001.05.04
