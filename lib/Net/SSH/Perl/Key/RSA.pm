@@ -1,4 +1,4 @@
-# $Id: RSA.pm,v 1.7 2001/05/02 03:49:24 btrott Exp $
+# $Id: RSA.pm,v 1.8 2001/05/03 03:05:56 btrott Exp $
 
 package Net::SSH::Perl::Key::RSA;
 use strict;
@@ -63,11 +63,9 @@ sub as_blob {
     join ' ', $key->{rsa}{bits}, $key->{rsa}{e}, $key->{rsa}{n};
 }
 
-sub fingerprint {
+sub fingerprint_raw {
     my $key = shift;
-    my $blob = md5(_mp_linearize($key->{rsa}->{n}) .
-                   _mp_linearize($key->{rsa}->{e}));
-    join ':', map { sprintf "%02x", ord } split //, $blob;
+    _mp_linearize($key->{rsa}->{n}) . _mp_linearize($key->{rsa}->{e});
 }
 
 1;

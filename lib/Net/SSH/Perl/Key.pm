@@ -1,7 +1,11 @@
-# $Id: Key.pm,v 1.6 2001/05/02 06:08:46 btrott Exp $
+# $Id: Key.pm,v 1.7 2001/05/03 03:05:55 btrott Exp $
 
 package Net::SSH::Perl::Key;
 use strict;
+
+use Digest::MD5 qw( md5 );
+use Digest::SHA1 qw( sha1 );
+use Digest::BubbleBabble qw( bubblebabble );
 
 sub new {
     my $class = shift;
@@ -37,7 +41,17 @@ sub sign;
 sub verify;
 sub as_blob;
 sub equal;
-sub fingerprint;
+
+sub fingerprint {
+    my $key = shift;
+    my($type) = @_;
+    my $data = $key->fingerprint_raw;
+    $type eq 'bubblebabble' ? _fp_bubblebabble($data) : _fp_hex($data);
+}
+
+sub _fp_bubblebabble { bubblebabble( Digest => sha1($_[0]) ) }
+
+sub _fp_hex { join ':', map { sprintf "%02x", ord } split //, md5($_[0]) }
 
 1;
 __END__

@@ -1,4 +1,4 @@
-$Id: README,v 1.16 2001/05/02 23:37:12 btrott Exp $
+$Id: README,v 1.17 2001/05/03 03:43:41 btrott Exp $
 
 This is Net::SSH::Perl. It contains implementations of
 both the SSH1 and SSH2 protocols.
@@ -15,14 +15,17 @@ Protocol 2
 
     * Crypt::DSA (0.03 or greater)
     * Crypt::DH (0.01 or greater)
-    * Convert::ASN1 (0.10 or greater)
-    * Convert::PEM (0.04 or greater)
     * Math::Pari (2.001804 or greater)
     * MIME::Base64
     * Digest::MD5
     * Digest::SHA1
     * Digest::HMAC_MD5
     * Digest::HMAC_SHA1
+
+It also optionally requires Convert::PEM (0.04 or greater),
+for reading/writing DSA key files (needed if you're using
+publickey authentication in SSH2), and Digest::BubbleBabble
+for generating bubble babble fingerprints.
 
 INSTALLATION
 

@@ -1,4 +1,4 @@
-# $Id: DSA.pm,v 1.13 2001/05/02 03:27:52 btrott Exp $
+# $Id: DSA.pm,v 1.15 2001/05/03 03:40:17 btrott Exp $
 
 package Net::SSH::Perl::Key::DSA;
 use strict;
@@ -10,12 +10,10 @@ use Net::SSH::Perl::Util qw( :ssh2mp );
 use Net::SSH::Perl::Key;
 use base qw( Net::SSH::Perl::Key );
 
-use MIME::Base64;
 use Crypt::DSA;
 use Crypt::DSA::Key;
 use Carp qw( croak );
 use Digest::SHA1 qw( sha1 );
-use Digest::MD5 qw( md5 );
 
 use constant INTBLOB_LEN => 20;
 
@@ -154,11 +152,7 @@ sub as_blob {
     $b->bytes;
 }
 
-sub fingerprint {
-    my $key = shift;
-    my $md5 = md5( $key->as_blob );
-    join ':', map { sprintf "%02x", ord } split //, $md5;
-}
+sub fingerprint_raw { $_[0]->as_blob }
 
 1;
 __END__

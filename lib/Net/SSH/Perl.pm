@@ -1,4 +1,4 @@
-# $Id: Perl.pm,v 1.71 2001/05/02 23:16:56 btrott Exp $
+# $Id: Perl.pm,v 1.73 2001/05/03 07:52:48 btrott Exp $
 
 package Net::SSH::Perl;
 use strict;
@@ -22,7 +22,7 @@ eval {
     $HOSTNAME = hostname();
 };
 
-$VERSION = "1.01";
+$VERSION = "1.02";
 
 sub VERSION { $VERSION }
 
@@ -413,10 +413,11 @@ also be fully compatible with the "official" SSH implementation. If
 you find an SSH2 implementation that is not compatible with
 I<Net::SSH::Perl>, please let me know (email address down in
 I<AUTHOR & COPYRIGHTS>); it turns out that some SSH2 implementations
-have subtle differences from others. 3DES and Blowfish ciphers are
-currently supported for SSH2 encryption, and integrity checking is
-performed by either the hmac-sha1 or hmac-md5 algorithms. Compression,
-if requested, is currently limited to Zlib.
+have subtle differences from others. 3DES (C<3des-cbc>), Blowfish
+(C<blowfish-cbc>), and RC4 (C<arcfour>) ciphers are currently
+supported for SSH2 encryption, and integrity checking is performed
+by either the C<hmac-sha1> or C<hmac-md5> algorithms. Compression, if
+requested, is limited to Zlib.
 
 =head1 BASIC USAGE
 
@@ -495,7 +496,7 @@ Defaults to false.
 
 =item * interactive
 
-Set to a true value if you're using I<Net::SSH> interactively.
+Set to a true value if you're using I<Net::SSH::Perl> interactively.
 This is used in determining whether or not to display password
 prompts, for example. It's basically the inverse of the
 I<BatchMode> parameter in ssh configuration.
@@ -586,10 +587,10 @@ remote server), but if you don't supply it the username of the
 user executing the program is used.
 
 The password I<$password> is needed only for password
-authentication (it's not used for RSA passphrase authentication,
-though perhaps it should be). And if you're running in an
-interactive session and you've not provided a password, you'll
-be prompted for one.
+authentication (it's not used for passphrases on encrypted
+RSA/DSA identity files, though perhaps it should be). And if you're
+running in an interactive session and you've not provided a
+password, you'll be prompted for one.
 
 =head2 ($out, $err, $exit) = $ssh->cmd($cmd, [ $stdin ])
 

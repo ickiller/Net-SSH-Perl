@@ -1,5 +1,5 @@
 #!/usr/bin/perl -w
-# $Id: pssh-keygen,v 1.4 2001/05/02 07:31:11 btrott Exp $
+# $Id: pssh-keygen,v 1.6 2001/05/03 03:11:58 btrott Exp $
 
 use strict;
 
@@ -10,7 +10,7 @@ use Net::SSH::Perl::Util qw( _read_passphrase );
 
 my %opts;
 Getopt::Long::Configure('no_ignore_case');
-GetOptions(\%opts, "b=i", "f=s", "l", "p", "q", "t=s", "C=s", "N=s", "P=s", "x", "X", "y");
+GetOptions(\%opts, "b=i", "f=s", "l", "B", "p", "q", "t=s", "C=s", "N=s", "P=s", "x", "X", "y");
 
 use vars qw( $VERBOSE $SSH_DIR );
 $VERBOSE = !$opts{q};
@@ -58,6 +58,9 @@ if ($opts{p} || $opts{x} || $opts{y} ||
     }
     elsif ($opts{l}) {
         print $key->size, " ", $key->fingerprint, "\n";
+    }
+    elsif ($opts{B}) {
+        print $key->size, " ", $key->fingerprint('bubblebabble'), "\n";
     }
     elsif ($opts{y}) {
         print $key->dump_public, "\n";
@@ -153,6 +156,8 @@ pssh-keygen B<-y> [B<-f> I<input_keyfile>]
 
 pssh-keygen B<-l> [B<-f> I<input_keyfile>]
 
+pssh-keygen B<-B> [B<-f> I<input_keyfile>]
+
 =head1 DESCRIPTION
 
 I<pssh-keygen> generates and manages SSH authentication keys.
@@ -195,7 +200,11 @@ F<$ENV{HOME}/.ssh/id_dsa> for I<dsa> key files.
 
 =item -l
 
-Show fingerprint of specified private key file.
+Show fingerprint of specified key file.
+
+=item -B
+
+Show fingerprint of specified key file in Bubble Babble format.
 
 =item -p
 

@@ -1,4 +1,4 @@
-# $Id: Makefile.PL,v 1.17 2001/05/02 23:40:44 btrott Exp $
+# $Id: Makefile.PL,v 1.18 2001/05/03 03:38:58 btrott Exp $
 
 use ExtUtils::MakeMaker qw( prompt WriteMakefile );
 use strict;
@@ -13,14 +13,12 @@ my %BASE_PREREQS = (
     2 => {
         'Digest::MD5'       => 0,
         'Digest::SHA1'      => 0,
-        'Crypt::DSA'        => '0.11',
-        'Crypt::DH'         => '0.01',
-        'Convert::ASN1'     => '0.10',
-        'Math::Pari'        => '2.001804',
-        'MIME::Base64'      => 0,
         'Digest::HMAC_MD5'  => 0,
         'Digest::HMAC_SHA1' => 0,
-        'Convert::PEM'      => '0.04',
+        'Crypt::DSA'        => '0.11',
+        'Crypt::DH'         => '0.01',
+        'Math::Pari'        => '2.001804',
+        'MIME::Base64'      => 0,
     },
 );
 
@@ -71,12 +69,11 @@ for my $mod (keys %{ $BASE_PREREQS{$p} }) {
 
 print<<MSG;
 
-Some of the Net::SSH::Perl ciphers depend on a Crypt:: module
-from CPAN. You may already have the necessary modules
-installed, in which case you don't need to bother with
-this step. Otherwise you'll need to install at least one
-cipher to use Net::SSH::Perl. Please choose at least one from
-the following list (Crypt::IDEA is the default).
+Some of the Net::SSH::Perl ciphers depend on a Crypt:: module from
+CPAN. You may already have the necessary modules installed, in which
+case you don't need to bother with this step. Otherwise you'll need
+to install at least one cipher to use Net::SSH::Perl. Please choose
+at least one from the following list (Crypt::IDEA is the default).
 
 MSG
 my $i = 1;
@@ -91,28 +88,29 @@ for my $id (split /\s+/, $c) {
     $prereq{ $cryptmod[$id-1]->[1] } = '0';
 }
 
-my %todo;
+print "\nChecking for required modules\n\n";
+my(%todo, $missing);
 while (my($k, $v) = each %prereq) {
-    $todo{$k} = $v unless have_mod($k, $v);
+    unless (check_module($k, $v, \$missing)) {
+        $todo{$k} = $v;
+    }
 }
 
+use Cwd;
+my $cwd = cwd();
+
 if (%todo) {
-    #unless (CPAN::Shell->can('install')) {
-        print <<MSG;
-Net::SSH::Perl depends on several external modules for
-functionality. These modules can be installed
-automatically for you, if you don't have them already;
-to do so will require loading the CPAN shell, which may
-require you to be running as root. If you'd rather not
-install these modules, answer "n" to the following
-questions. Note, however, that you'll still need to
-install these modules manually to use Net::SSH::Perl.
+    print <<MSG;
+Net::SSH::Perl depends on several external modules for functionality.
+Some of these modules can not be found on your system; they can be
+installed automatically for you. To do so will require loading the
+CPAN shell, which may require you to be running as root. Answer 'n' to
+each of the following questions if you'd rather not install any
+needed modules right now; note, however, that you'll still need to
+install them to use Net::SSH::Perl.
 
 MSG
-    #}
 
-    require Cwd;
-    my $cwd = Cwd::cwd();
     while (my($k, $v) = each %todo) {
         if (prompt(sprintf("%s%s not installed/out of date. Install (y/n)?",
           $k, $v ? " (ver. $v)" : ""), "y") =~ /^y/) {
@@ -123,6 +121,33 @@ MSG
     }
 }
 
+print "\nChecking for optional modules\n\n";
+
+unless (check_module('Digest::BubbleBabble', 0.01, \$missing)) {
+    print<<MSG, "\n";
+Digest::BubbleBabble is required if you want to generate bubble babble
+key fingerprints with pssh-keygen.
+MSG
+    if (read_yes_or_no("Would you like to install it now? (y/n)", "y")) {
+        require CPAN; CPAN::Shell->install('Digest::BubbleBabble');
+        chdir $cwd or die "Can't chdir back to $cwd: $!";
+    }
+    print "\n";
+}
+
+unless (check_module('Convert::PEM', 0.04, \$missing)) {
+    print<<MSG, "\n";
+Convert::PEM is required if you want to use DSA public key authentication
+with Net::SSH::Perl.
+MSG
+    if (read_yes_or_no("Would you like to install it now? (y/n)", "y")) {
+        require CPAN; CPAN::Shell->install('Convert::PEM');
+        chdir $cwd or die "Can't chdir back to $cwd: $!";
+    }
+    print "\n";
+}
+
+print "\n";
 WriteMakefile(
     NAME => 'Net::SSH::Perl',
     DISTNAME => 'Net-SSH-Perl',
@@ -131,6 +156,21 @@ WriteMakefile(
     AUTHOR => 'Benjamin Trott <ben@rhumba.pair.com>',
     ABSTRACT => 'Perl client Interface to SSH',
 );
+
+sub read_yes_or_no {
+    my($prompt, $def) = @_;
+    my $ans = prompt($prompt, $def);
+    $ans =~ /^y/i;
+}
+
+sub check_module {
+    my($name, $ver, $missing) = @_;
+    print substr("$name ............................", 0, 30);
+    my $ok = have_mod($name, $ver);
+    $$missing++ unless $ok;
+    print $ok ? "ok\n" : "** FAILED **\n";
+    $ok;
+}
 
 sub have_mod {
     my($name, $ver) = @_;

@@ -1,4 +1,4 @@
-# $Id: Util.pm,v 1.22 2001/05/02 23:06:47 btrott Exp $
+# $Id: Util.pm,v 1.23 2001/05/03 08:03:29 btrott Exp $
 
 package Net::SSH::Perl::Util;
 use strict;
@@ -244,7 +244,7 @@ Dies if: the key file I<$key_file> can't be opened for
 reading; or the key file is "bad" (the ID string in the
 file doesn't match the PRIVATE_KEY_ID_STRING constant).
 
-Returns the RSA key (a I<Net::SSH::Perl::Key::RSA object).
+Returns the RSA key (a I<Net::SSH::Perl::Key::RSA> object).
 
 =head2 _load_private_key($key_file [, $passphrase ])
 
@@ -264,7 +264,7 @@ doesn't match the PRIVATE_KEY_ID_STRING constant); the
 file is encrypted using an unsupported encryption cipher;
 or the passphrase I<$passphrase> is incorrect.
 
-Returns the RSA key (a I<Net::SSH::Perl::Key::RSA object).
+Returns the RSA key (a I<Net::SSH::Perl::Key::RSA> object).
 
 =head2 _save_private_key($key_file, $key, [ $passphrase [, $comment ]])
 
