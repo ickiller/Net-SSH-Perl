@@ -1,6 +1,20 @@
-$Id: Changes,v 1.29 2001/03/23 00:56:09 btrott Exp $
+$Id: Changes,v 1.29.2.3 2001/04/20 17:46:17 btrott Exp $
 
 Revision history for Net::SSH::Perl
+
+0.67  2001.04.05
+    - now use _mp_linearize in _rsa_private_decrypt.
+    - fixed bug with sending large STDIN packets. The symptom was
+      that, when trying to send STDIN packets larger than MAX_PACKET_SIZE,
+      you'd get an error and the packet wouldn't be sent. Thanks to
+      Chris Beatson (chris@neonova.net) for the spot and a patch.
+    - fixed odd bug with _mp_linearize. Aaron Paetznick
+      (aaronp@@critd.com) pointed this out, and I could only
+      reproduce it on his system. The symptoms were that encryption
+      would not work, resulting in "Corrupted check bytes on input"
+      messages after encryption was turned on. This was due to a
+      problem generating the session ID. Fixed by using a whole new
+      version of _mp_linearize.
 
 0.66  2001.03.22
     - fixed bug where calling 'cmd' more than once wouldn't get

@@ -1,4 +1,4 @@
-# $Id: Perl.pm,v 1.50 2001/03/23 00:56:28 btrott Exp $
+# $Id: Perl.pm,v 1.50.2.3 2001/04/20 17:46:18 btrott Exp $
 
 package Net::SSH::Perl;
 use strict;
@@ -24,7 +24,7 @@ eval {
     $HOSTNAME = hostname();
 };
 
-$VERSION = "0.66";
+$VERSION = "0.67";
 
 sub new {
     my $class = shift;
@@ -476,8 +476,16 @@ sub cmd {
     $packet->send;
 
     if (defined $stdin) {
-        $packet = $ssh->packet_start(SSH_CMSG_STDIN_DATA);
-        $packet->put_str($stdin);
+        my $chunk_size = 32000;
+        my $pos = 0;
+        while ($stdin) {
+            my $chunk = substr($stdin, 0, $chunk_size, '');
+            $packet = $ssh->packet_start(SSH_CMSG_STDIN_DATA);
+            $packet->put_str($chunk);
+            $packet->send;
+        }
+
+        $packet = $ssh->packet_start(SSH_CMSG_EOF);
         $packet->send;
 
         $packet = $ssh->packet_start(SSH_CMSG_EOF);

@@ -1,4 +1,4 @@
-# $Id: Util.pm,v 1.12 2001/03/14 04:22:45 btrott Exp $
+# $Id: Util.pm,v 1.12.2.2 2001/04/20 17:45:49 btrott Exp $
 
 package Net::SSH::Perl::Util;
 use strict;
@@ -51,25 +51,32 @@ sub _crc32 {
 sub _compute_session_id {
     my($check_bytes, $host, $public) = @_;
     my $id;
-    $id .= _mp_linearize(int(($host->{bits}+7)/8), $host->{n});
-    $id .= _mp_linearize(int(($public->{bits}+7)/8), $public->{n});
+    $id .= _mp_linearize($host->{n});
+    $id .= _mp_linearize($public->{n});
     $id .= $check_bytes;
     md5($id);
 }
 
 sub _mp_linearize {
-    my($len, $key) = @_;
-    my($aux, @res, $i) = ($key);
-    for ($i=$len; $i>=4; $i-=4) {
-        my $limb = Math::GMP::uintify_gmp($aux);
-        unshift @res, $limb;
-        $aux = Math::GMP::div_2exp_gmp($aux, 32);
+    my($p, $l) = @_;
+    $l ||= 0;
+    my $base = Math::GMP->new(256);
+    my $res = '';
+    {
+        my $r = $p % $base;
+        my $d = Math::GMP->new($p-$r) / $base;
+        $res = chr($r) . $res;
+        if ($d >= $base) {
+            $p = $d;
+            redo;
+        }
+        elsif ($d != 0) {
+            $res = chr($d) . $res;
+        }
     }
-    for (; $i>0; $i--) {
-        unshift @res, Math::GMP::uintify_gmp($aux);
-        $aux = Math::GMP::div_2exp_gmp($aux, 8);
-    }
-    join '', map pack("N", $_), @res;
+    $res = "\0" x ($l-length($res)) . $res
+        if length($res) < $l;
+    $res;
 }
 
 ## host utility functions.
@@ -251,7 +258,7 @@ sub _respond_to_rsa_challenge {
     my($ssh, $challenge, $key) = @_;
 
     $challenge = _rsa_private_decrypt($challenge, $key);
-    my $buf = _mp_linearize(32, $challenge);
+    my $buf = _mp_linearize($challenge, 32);
     my $response = md5($buf, $ssh->session_id);
 
     $ssh->debug("Sending response to host key RSA challenge.");
@@ -289,29 +296,16 @@ sub _rsa_public {
 }
 
 sub _rsa_private_decrypt {
-    my($data, $key) = @_;
-
-    my $output = _rsa_private($data, $key);
-
+    my($input, $key) = @_;
+    my $output = _rsa_private($input, $key);
     my $len = int(($key->{bits} + 7) / 8);
-    my $aux = Math::GMP->new($output);
-    my $res = "";
-    my $i;
-    for ($i=$len; $i>=4; $i-=4) {
-        my $limb = Math::GMP::uintify_gmp($aux);
-        $res = pack("N", $limb) . $res;
-        $aux = Math::GMP::div_2exp_gmp($aux, 32);
-    }
-    for (; $i>0; $i--) {
-        $res = pack("N", Math::GMP::uintify_gmp($aux)) . $res;
-        $aux = Math::GMP::div_2exp_gmp($aux, 8);
-    }
-    unless (ord(substr $res, 0, 1) == 0 && ord(substr $res, 1, 1) == 2) {
+    my $res = _mp_linearize($output, $len);
+    unless (vec($res, 0, 8) == 0 && vec($res, 1, 8) == 2) {
         croak "Bad result from rsa_private_decrypt";
     }
-    for ($i=2; $i<$len && ord substr $res, $i, 1; $i++) { }
-
-    my $a = Math::GMP::mod_2exp_gmp($output, 8 * ($len - $i - 1));
+    my $i;
+    for ($i=2; $i<$len && vec($res, $i, 8); $i++) { }
+    Math::GMP::mod_2exp_gmp($output, 8 * ($len - $i - 1));
 }
 
 sub _rsa_private {
@@ -409,17 +403,11 @@ multiple-precision integers (I<Math::GMP> objects).
 
 Returns the session ID.
 
-=head2 _mp_linearize($length, $key)
+=head2 _mp_linearize($int)
 
-Converts a multiple-precision integer I<$key> into a byte string.
-I<$length> should be the number of bytes to linearize, which is
-generally the number of bytes in the key.
+Converts a multiple-precision integer I<$int> into a byte string.
 
-Note that, unlike the key arguments to C<_compute_session_id>,
-I<$key> here is just the multiple-precision integer, I<not>
-the hash reference.
-
-Returns the linearized string.
+Returns the byte string.
 
 =head2 _check_host_in_hostfile($host, $host_file, $host_key)
 
