@@ -1,6 +1,21 @@
-$Id: Changes,v 1.67 2001/07/11 22:13:46 btrott Exp $
+$Id: Changes,v 1.69 2001/07/21 05:35:57 btrott Exp $
 
 Revision history for Net::SSH::Perl
+
+1.21
+    - Fixed Handle::SSH(?:1|2)::WRITE when sending large amounts of data,
+      ie. data larger than the max packet size. Now we break up data
+      into chunks of 32000 bytes, then send each in turn. Thanks to
+      Doug Wilson for the spot.
+    - Fixed SSH1::_start_interactive (SSH-1 client loop) so that we
+      break the client loop on EOF reads from the sshd socket. This
+      should fix some hangs when calling close on a tied open2 handle.
+    - Better detection of exit status in Handle::SSH1.
+    - Handle::SSH1::READ now looks to see if we have already hit EOF
+      (ie. we have received exit status packet); if so, returns 0.
+    - Added SSH1::send_data, which allows register_handler callbacks
+      to be written that will (hopefully) work for both SSH-1 and
+      SSH-2.
 
 1.20  2001.07.11
     - A read on an open2 tied filehandle that indicates a closed connection

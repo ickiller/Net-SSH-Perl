@@ -1,4 +1,4 @@
-# $Id: SSH1.pm,v 1.18 2001/07/11 22:14:01 btrott Exp $
+# $Id: SSH1.pm,v 1.20 2001/07/19 06:17:04 btrott Exp $
 
 package Net::SSH::Perl::SSH1;
 use strict;
@@ -245,7 +245,6 @@ sub cmd {
 
     if (defined $stdin) {
         my $chunk_size = 32000;
-        my $pos = 0;
         while ($stdin) {
             my $chunk = substr($stdin, 0, $chunk_size, '');
             $packet = $ssh->packet_start(SSH_CMSG_STDIN_DATA);
@@ -326,13 +325,9 @@ sub open2 {
         $packet->send;
     }
 
-    my($exit);
-    $ssh->register_handler(SSH_SMSG_EXITSTATUS,
-        sub { $exit = $_[1]->get_int32 });
-
     local(*READ, *WRITE);
-    tie *READ, 'Net::SSH::Perl::Handle::SSH1', 'r', $ssh, \$exit;
-    tie *WRITE, 'Net::SSH::Perl::Handle::SSH1', 'w', $ssh, \$exit;
+    tie *READ, 'Net::SSH::Perl::Handle::SSH1', 'r', $ssh;
+    tie *WRITE, 'Net::SSH::Perl::Handle::SSH1', 'w', $ssh;
 
     $ssh->debug("Entering interactive session.");
     (\*READ, \*WRITE);
@@ -356,7 +351,8 @@ sub _start_interactive {
         for my $a (@ready) {
             if ($a == $ssh->{session}{sock}) {
                 my $buf;
-                sysread $a, $buf, 8192;
+                my $len = sysread $a, $buf, 8192;
+                $ssh->break_client_loop unless $len;
                 ($buf) = $buf =~ /(.*)/s;  ## Untaint data. Anything allowed.
                 $ssh->incoming_data->append($buf);
             }
@@ -382,13 +378,20 @@ sub _start_interactive {
             if ($packet->type == SSH_SMSG_EXITSTATUS) {
                 my $packet = $ssh->packet_start(SSH_CMSG_EXIT_CONFIRMATION);
                 $packet->send;
-                $ssh->break_client_loop
+                $ssh->break_client_loop;
             }
         }
 
         last if $ssh->_quit_pending;
     }
+}
 
+sub send_data {
+    my $ssh = shift;
+    my($data) = @_;
+    my $packet = $ssh->packet_start(SSH_CMSG_STDIN_DATA);
+    $packet->put_str($data);
+    $packet->send;
 }
 
 sub set_cipher {

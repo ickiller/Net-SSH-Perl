@@ -4,6 +4,8 @@ use strict;
 use Net::SSH::Perl::Buffer;
 use Net::SSH::Perl::Constants qw( :channels );
 
+use constant CHUNK_SIZE => 32000;
+
 use Tie::Handle;
 use base qw( Tie::Handle );
 
@@ -38,8 +40,12 @@ sub READ {
 sub WRITE {
     my $h = shift;
     my($data) = @_;
-    $h->{channel}->send_data($data);
-    length($data);
+    my $len = length($data);
+    while ($data) {
+        my $chunk = substr($data, 0, CHUNK_SIZE, '');
+        $h->{channel}->send_data($chunk);
+    }
+    $len;
 }
 
 sub EOF { defined ${$_[0]->{exit}} ? 1 : 0 }
@@ -54,22 +60,12 @@ sub CLOSE {
         $c->{istate} = CHAN_INPUT_CLOSED;
         $ssh->client_loop;
     }
+    1;
 }
 
-=pod
-
-sub DESTROY {
-    my $h = shift;
-    unless ($h->{incoming}) {
-        my $c = $h->{channel};
-        my $ssh = $c->{ssh};
-        $c->{istate} = CHAN_INPUT_WAIT_DRAIN;
-        $c->send_eof;
-        $c->{istate} = CHAN_INPUT_CLOSED;
-        $ssh->client_loop;
-    }
-}
-
-=cut
+#sub DESTROY {
+#    my $h = shift;
+#    $h->CLOSE;
+#}
 
 1;
