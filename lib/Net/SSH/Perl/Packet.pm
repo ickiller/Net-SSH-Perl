@@ -1,4 +1,4 @@
-# $Id: Packet.pm,v 1.4 2001/02/21 23:50:41 btrott Exp $
+# $Id: Packet.pm,v 1.5 2001/02/24 07:07:17 btrott Exp $
 
 package Net::SSH::Perl::Packet;
 
@@ -63,7 +63,7 @@ sub read {
     $buffer->bytes(0, 8 - $len % 8, "");
 
     my $stored_crc = unpack "N", $buffer->bytes(-4, 4);
-    croak "Corrupted check bytes on input"
+    $ssh->fatal_disconnect("Corrupted check bytes on input")
         unless $crc == $stored_crc;
 
     my $type = unpack "c", $buffer->bytes(0, 1, "");
@@ -88,8 +88,9 @@ sub read_expect {
     my($ssh, $type) = @_;
     my $pack = $class->read($ssh);
     if ($pack->type != $type) {
-        croak sprintf "Protocol error: expected packet type %d, got %d; buffer is %s",
-            $type, $pack->type, $pack->data->bytes;
+        $ssh->fatal_disconnect(sprintf
+          "Protocol error: expected packet type %d, got %d",
+            $type, $pack->type);
     }
     $pack;
 }
@@ -99,8 +100,9 @@ sub send {
     my $buffer = shift || $pack->{data};
 
     if ($buffer->length >= MAX_PACKET_SIZE - 30) {
-        croak sprintf "Sending too big a packet: size %d, limit %d",
-            $buffer->length, MAX_PACKET_SIZE;
+        $pack->{ssh}->fatal_disconnect(sprintf
+            "Sending too big a packet: size %d, limit %d",
+            $buffer->length, MAX_PACKET_SIZE);
     }
 
     my $len = $buffer->length + 4;

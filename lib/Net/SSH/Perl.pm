@@ -1,9 +1,10 @@
-# $Id: Perl.pm,v 1.15 2001/02/22 04:23:32 btrott Exp $
+# $Id: Perl.pm,v 1.24 2001/02/26 17:36:47 btrott Exp $
 
 package Net::SSH::Perl;
 use strict;
 
 use Net::SSH::Perl::Packet;
+use Net::SSH::Perl::Config;
 use Net::SSH::Perl::Constants qw/:msg :hosts PROTOCOL_MAJOR PROTOCOL_MINOR/;
 use Net::SSH::Perl::Cipher;
 use Net::SSH::Perl::Auth;
@@ -15,30 +16,72 @@ use Socket;
 use Symbol;
 use Math::GMP;
 
-$VERSION = "0.52";
+$VERSION = "0.53";
 
 sub new {
     my $class = shift;
     my $host = shift;
     croak "usage: ", __PACKAGE__, "->new(\$host)"
         unless defined $host;
-    my $ssh = bless { host => $host, @_ }, $class;
-    if ($ssh->{cipher}) {
-        my $cid;
-        unless ($cid = Net::SSH::Perl::Cipher::id($ssh->{cipher})) {
-            croak "Cipher '$ssh->{cipher}' is unknown.";
-        }
-        unless (Net::SSH::Perl::Cipher::supported($cid)) {
-            croak "Cipher '$ssh->{cipher}' is not supported.";
-        }
-    }
-    if (scalar getpwuid($<) eq "root" && !exists $ssh->{privileged}) {
-        $ssh->{privileged} = 1;
-    }
+    my $ssh = bless { host => $host }, $class;
+    $ssh->_init(@_);
     $ssh->debug(sprintf "Net::SSH Version $VERSION, protocol version %s.%s.",
         PROTOCOL_MAJOR, PROTOCOL_MINOR);
     $ssh;
 }
+
+sub _init {
+    my $ssh = shift;
+    my %arg = @_;
+    my $user_config = delete $arg{user_config} || "$ENV{HOME}/.ssh/config";
+    my $sys_config  = delete $arg{sys_config}  || "/etc/ssh_config";
+
+    my $cfg = Net::SSH::Perl::Config->new($ssh->{host}, %arg);
+    $ssh->{config} = $cfg;
+
+    $ssh->debug("Reading configuration data $user_config");
+    $cfg->read_config($user_config);
+    $ssh->debug("Reading configuration data $sys_config");
+    $cfg->read_config($sys_config);
+
+    if (my $real_host = $ssh->{config}->get('hostname')) {
+        $ssh->{host} = $real_host;
+    }
+
+    if (my $ciph = $ssh->{config}->get('cipher')) {
+        my $cid;
+        unless ($cid = Net::SSH::Perl::Cipher::id($ciph)) {
+            croak "Cipher '$ciph' is unknown.";
+        }
+        unless (Net::SSH::Perl::Cipher::supported($cid)) {
+            croak "Cipher '$ciph' is not supported.";
+        }
+    }
+
+    if (scalar getpwuid($<) eq "root" &&
+      !defined $ssh->{config}->get('privileged')) {
+        $ssh->{config}->set('privileged', 1);
+    }
+
+    unless ($ssh->{config}->get('user_known_hosts')) {
+        $ssh->{config}->set('user_known_hosts', "$ENV{HOME}/.ssh/known_hosts");
+    }
+    unless ($ssh->{config}->get('global_known_hosts')) {
+        $ssh->{config}->set('global_known_hosts', "/etc/ssh_known_hosts");
+    }
+    unless (my $if = $ssh->{config}->get('identity_files')) {
+        $ssh->{config}->set('identity_files', [ "$ENV{HOME}/.ssh/identity" ]);
+    }
+
+    # Turn on all auth methods we support unless otherwise instructed.
+    # If the server doesn't support them they won't be tried anyway.
+    for my $a (qw( password rhosts rhosts_rsa rsa )) {
+        $ssh->{config}->set("auth_$a", 1)
+            unless defined $ssh->{config}->get("auth_$a");
+    }
+}
+
+sub config { $_[0]->{config} }
 
 use vars qw/$CONFIG/;
 $CONFIG = {};
@@ -75,15 +118,16 @@ sub _connect {
     my $sock = $ssh->_create_socket;
 
     my $raddr = inet_aton($ssh->{host});
-    croak "Net::SSH: Couldn't resolve $ssh->{host} to numerical address"
+    croak "Net::SSH: Bad host name: $ssh->{host}"
         unless defined $raddr;
-    my $rport = $ssh->{port} || 'ssh';
+    my $rport = $ssh->{config}->get('port') || 'ssh';
     if ($rport =~ /\D/) {
         my @serv = getservbyname($rport, 'tcp');
         $rport = $serv[2];
     }
     $ssh->debug("Connecting to $ssh->{host}, port $rport.");
-    connect($sock, sockaddr_in($rport, $raddr));
+    connect($sock, sockaddr_in($rport, $raddr))
+        or die "Can't connect to $ssh->{host}, port $rport: $!";
 
     select((select($sock), $|=1)[0]);
 
@@ -96,7 +140,7 @@ sub _connect {
 sub _create_socket {
     my $ssh = shift;
     my $sock = gensym;
-    if ($ssh->{privileged}) {
+    if ($ssh->{config}->get('privileged')) {
         my $p;
         my $proto = getprotobyname('tcp');
         for ($p = 1023; $p > 512; $p--) {
@@ -110,7 +154,7 @@ sub _create_socket {
             croak "Net::SSH: Can't bind socket to port $p: $!";
         }
         $ssh->debug("Allocated local port $p.");
-        $ssh->{localport} = $p;
+        $ssh->{config}->set('localport', $p);
     }
     else {
         socket($sock, AF_INET, SOCK_STREAM, 0) ||
@@ -122,8 +166,15 @@ sub _create_socket {
 sub _disconnect {
     my $ssh = shift;
     my $packet = $ssh->packet_start(SSH_MSG_DISCONNECT);
+    $packet->put_str("@_") if @_;
     $packet->send;
     $ssh->{session} = {};
+}
+
+sub fatal_disconnect {
+    my $ssh = shift;
+    $ssh->_disconnect(@_);
+    croak @_;
 }
 
 sub sock {
@@ -146,19 +197,21 @@ sub _exchange_identification {
 
 sub debug {
     my $ssh = shift;
-    print STDERR "@_\n" if $ssh->{debug};
+    print STDERR "@_\n" if $ssh->{config}->get('debug');
 }
 
 sub login {
     my $ssh = shift;
-    ($ssh->{user}, $ssh->{pass}) = @_;
-    $ssh->{pass} = $CONFIG->{ssh_password} if exists $CONFIG->{ssh_password};
-    $ssh->{user} = scalar getpwuid($<) unless defined $ssh->{user};
+    my($user, $pass) = @_;
+    $pass = $CONFIG->{ssh_password} if exists $CONFIG->{ssh_password};
+    $user = scalar getpwuid($<) unless defined $user;
+    $ssh->{config}->set('user', $user);
+    $ssh->{config}->set('pass', $pass);
 }
 
 sub _login {
     my $ssh = shift;
-    my $user = $ssh->{user};
+    my $user = $ssh->{config}->get('user');
     croak "No user defined" unless $user;
 
     $ssh->debug("Waiting for server public key.");
@@ -187,12 +240,12 @@ sub _login {
 
     my $status =
       _check_host_in_hostfile($ssh->{host},
-      "$ENV{HOME}/.ssh/known_hosts", $keys{host});
+      $ssh->{config}->get('user_known_hosts'), $keys{host});
 
     unless (defined $status && $status == HOST_OK) {
         $status =
           _check_host_in_hostfile($ssh->{host},
-          "/etc/ssh_known_hosts", $keys{host});
+          $ssh->{config}->get('global_known_hosts'), $keys{host});
     }
 
     if ($status == HOST_OK) {
@@ -201,9 +254,9 @@ sub _login {
     }
     elsif ($status == HOST_NEW) {
         $ssh->debug(sprintf "Host key for host '%s' not found from the list " .
-            "of known hosts... adding.", $ssh->{hosts});
+            "of known hosts... adding.", $ssh->{host});
         _add_host_to_hostfile($ssh->{host},
-            "$ENV{HOME}/.ssh/known_hosts", $keys{host});
+            $ssh->{config}->get('user_known_hosts'), $keys{host});
     }
     else {
         croak sprintf "Host key for '%s' has changed!", $ssh->{host};
@@ -233,7 +286,7 @@ sub _login {
     }
 
     my($cipher, $cipher_name);
-    if ($cipher_name = $ssh->{cipher}) {
+    if ($cipher_name = $ssh->{config}->get('cipher')) {
         $cipher = Net::SSH::Perl::Cipher::id($cipher_name);
     }
     else {
@@ -273,8 +326,8 @@ sub _login {
     return 1 if $packet->type == SSH_SMSG_SUCCESS;
 
     if ($packet->type != SSH_SMSG_FAILURE) {
-        croak sprintf "Protocol error: got %d in response to SSH_CMSG_USER",
-            $packet->type;
+        $ssh->fatal_disconnect(sprintf
+          "Protocol error: got %d in response to SSH_CMSG_USER", $packet->type);
     }
 
     my $auth_order = Net::SSH::Perl::Auth::auth_order();
@@ -292,7 +345,7 @@ sub cmd {
     my $stdin = shift;
 
     $ssh->_connect;
-    croak "Permission denied" unless $ssh->_login;
+    $ssh->fatal_disconnect("Permission denied") unless $ssh->_login;
 
     my($packet);
 
@@ -329,8 +382,9 @@ sub cmd {
             $code->($ssh, $pack);
         }
         else {
-            croak sprintf "Didn't expect packet of type %d; buffer is %s\n",
-                $pack->type, $pack->bytes;
+            $ssh->fatal_disconnect(sprintf
+                "Didn't expect packet of type %d; buffer is %s\n",
+                $pack->type, $pack->bytes);
         }
 
         last if $pack->type == SSH_SMSG_EXITSTATUS;
@@ -383,18 +437,35 @@ Net::SSH::Perl - Perl client Interface to SSH
 =head1 DESCRIPTION
 
 I<Net::SSH::Perl> is an all-Perl module implementing an ssh client.
-In other words, it isn't a wrapper around the actual ssh
-client, which is both good and bad. The good is that you don't
-have to fork another process to connect to an sshd daemon,
-so you save on overhead, which is a big win. The bad is that
-currently I<Net::SSH::Perl> doesn't support all of the authentication
-protocols and encryption ciphers that the actual I<ssh> program does,
-so you can't take advantage of them. (For a list of what ciphers
-and auth methods are supported, keep reading.)
+It enables you to simply and securely execute commands on remote
+machines, and receive the STDOUT, STDERR, and exit status of that
+remote command.
 
-Of course, I think that the good outweighs the bad (particularly
-since the bad is something that can be improved and worked on),
-and that's why I<Net::SSH::Perl> exists.
+It contains built-in support for various methods of authenticating
+with the server (password authentication, RSA challenge-response
+authentication, etc.). It completely implements the I/O buffering,
+packet transport, and user authentication layers of the SSH protocol,
+and makes use of external Perl libraries (in the Crypt:: family of
+modules) to handle encryption of all data sent across the insecure
+network. It can also read your existing SSH configuration files
+(F</etc/ssh_config>, etc.), RSA identity files, known hosts files,
+etc.
+
+One advantage to using I<Net::SSH::Perl> over wrapper-style
+implementations of ssh clients is that it saves on process
+overhead: you no longer need to fork and execute a separate process
+in order to connect to an sshd. Depending on the amount of time
+and memory needed to fork a process, this win can be quite
+substantial; particularly if you're running in a persistent
+Perl environment (I<mod_perl>, for example), where forking a new
+process is a drain on process and memory resources.
+
+It also simplifies the process of using password-based authentications;
+when writing a wrapper around I<ssh> you probably need to use
+I<Expect> to control the ssh client and give it your password.
+I<Net::SSH::Perl> has built-in support for the authentication
+protocols, so there's no longer any hassle of communicating with
+any external processes.
 
 =head1 BASIC USAGE
 
@@ -471,8 +542,8 @@ If you don't provide this, RSA authentication defaults to using
 Sets the username and password to be used when authenticating
 with the I<sshd> daemon. The username I<$user> is required for
 all authentication protocols (to identify yourself to the
-remote server), but if you don't supply it the currently
-logged-in user is used instead.
+remote server), but if you don't supply it the username of the
+user executing the program is used.
 
 The password I<$password> is needed only for password
 authentication (it's not used for RSA passphrase authentication,
@@ -517,6 +588,16 @@ above. If they're not, however, you may want to use some of the
 additional methods listed here. Some of these are aimed at
 end-users, while others are probably more useful for actually
 writing an authentication module, or a cipher, etc.
+
+=head2 $ssh->config
+
+Returns the I<Net::SSH::Perl::Config> object managing the
+configuration data for this SSH object. This is constructed
+from data passed in to the constructor I<new> (see above),
+merged with data read from the user and system configuration
+files. See the I<Net::SSH::Perl::Config> docs for details
+on methods you can call on this object (you'll probably
+be more interested in the I<get> and I<set> methods).
 
 =head2 $ssh->sock
 

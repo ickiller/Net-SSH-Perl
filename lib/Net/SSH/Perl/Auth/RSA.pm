@@ -1,9 +1,8 @@
-# $Id: RSA.pm,v 1.5 2001/02/22 00:55:11 btrott Exp $
+# $Id: RSA.pm,v 1.8 2001/02/24 01:39:13 btrott Exp $
 
 package Net::SSH::Perl::Auth::RSA;
 
 use strict;
-use Carp qw/croak/;
 
 use Net::SSH::Perl::Constants qw/
     SSH_SMSG_FAILURE
@@ -27,9 +26,10 @@ sub authenticate {
     my $auth = shift;
     my $ssh = $auth->{ssh};
 
-    my $if = $ssh->{identity_files} || [];
-    push @$if, "$ENV{HOME}/.ssh/identity" unless @$if;
+    $ssh->debug("RSA authentication is disabled by the client."), return
+        unless $ssh->config->get('auth_rsa');
 
+    my $if = $ssh->config->get('identity_files') || [];
     for my $f (@$if) {
         return 1 if $auth->_authenticate($f);
     }
@@ -61,7 +61,7 @@ sub _authenticate {
     }
 
     if ($type != SSH_SMSG_AUTH_RSA_CHALLENGE) {
-        croak "Protocol error during RSA authentication: $type";
+        $ssh->fatal_disconnect("Protocol error during RSA authentication: $type");
     }
 
     my $challenge = $packet->get_mp_int;
@@ -72,7 +72,7 @@ sub _authenticate {
     };
     if (!$private_key || $@) {
         my $passphrase = "";
-        if ($ssh->{interactive}) {
+        if ($ssh->config->get('interactive')) {
             $passphrase = _read_passphrase("Enter passphrase for RSA key '$comment': ");
         }
         else {
@@ -102,7 +102,7 @@ sub _authenticate {
         return 1;
     }
     elsif ($type != SSH_SMSG_FAILURE) {
-        croak "Protocol error waiting RSA auth response: $type";
+        $ssh->fatal_disconnect("Protocol error waiting RSA auth response: $type");
     }
 
     $ssh->debug("RSA authentication refused.");

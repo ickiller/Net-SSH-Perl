@@ -1,4 +1,4 @@
-# $Id: 03-packet.t,v 1.3 2001/02/22 00:12:55 btrott Exp $
+# $Id: 03-packet.t,v 1.4 2001/02/28 22:30:37 btrott Exp $
 
 use strict;
 
@@ -7,7 +7,7 @@ use Net::SSH::Perl::Packet;
 use Net::SSH::Perl::Constants qw/:msg/;
 
 use Test;
-BEGIN { plan tests => 7 }
+BEGIN { plan tests => 8 }
 
 my $ssh = Net::SSH::Perl->new("dummy");
 my $packet;
@@ -38,6 +38,16 @@ eval {
 my $expected = sprintf "type %s, got %s", SSH_SMSG_FAILURE, SSH_SMSG_SUCCESS;
 ok($@ && $@ =~ /$expected/);
 
+## That read_expect issued a fatal_disconnect, which sent
+## a disconnect message. It also dropped the session socket,
+## so we need to reinstate it.
+$ssh->{session}{sock} = \*FH;
+eval {
+    Net::SSH::Perl::Packet->read($ssh);
+};
+ok($@ && $@ =~ /^Received disconnect.+Protocol error/);
+
+## Now that we're back to normal...
 ## Test leftover functionality. Send two packets
 ## that will both get placed into the StringThing buffer...
 Net::SSH::Perl::Packet->new($ssh, type => SSH_SMSG_FAILURE)->send;

@@ -1,9 +1,8 @@
-# $Id: Rhosts.pm,v 1.4 2001/02/22 00:55:11 btrott Exp $
+# $Id: Rhosts.pm,v 1.7 2001/02/24 01:39:13 btrott Exp $
 
 package Net::SSH::Perl::Auth::Rhosts;
 
 use strict;
-use Carp qw/croak/;
 
 use Net::SSH::Perl::Constants qw/
     SSH_SMSG_FAILURE
@@ -25,10 +24,13 @@ sub authenticate {
     my($packet);
     my $ssh = $auth->{ssh};
 
+    $ssh->debug("Rhosts authentication is disabled by the client."), return
+        unless $ssh->config->get('auth_rhosts');
+
     $ssh->debug("Trying rhosts authentication.");
 
     $packet = $ssh->packet_start(SSH_CMSG_AUTH_RHOSTS);
-    $packet->put_str($ssh->{user});
+    $packet->put_str($ssh->config->get('user'));
     $packet->send;
 
     $packet = Net::SSH::Perl::Packet->read($ssh);
@@ -37,7 +39,7 @@ sub authenticate {
         return 1;
     }
     elsif ($type != SSH_SMSG_FAILURE) {
-        croak "Protocol error: got $type in response to rhosts auth";
+        $ssh->fatal_disconnect("Protocol error: got $type in response to rhosts auth");
     }
 
     return 0;

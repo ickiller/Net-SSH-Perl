@@ -1,9 +1,8 @@
-# $Id: Password.pm,v 1.4 2001/02/22 00:55:11 btrott Exp $
+# $Id: Password.pm,v 1.7 2001/02/24 01:39:13 btrott Exp $
 
 package Net::SSH::Perl::Auth::Password;
 
 use strict;
-use Carp qw/croak/;
 
 use Net::SSH::Perl::Constants qw/SSH_CMSG_AUTH_PASSWORD SSH_SMSG_SUCCESS SSH_SMSG_FAILURE/;
 
@@ -23,12 +22,15 @@ sub authenticate {
     my($packet);
 
     my $ssh = $auth->{ssh};
-    my $pass = $ssh->{pass};
+    $ssh->debug("Password authentication is disabled by the client."), return
+        unless $ssh->config->get('auth_password');
+
+    my $pass = $ssh->config->get('pass');
     $ssh->debug("Trying password authentication.");
     if (!$pass) {
-        if ($ssh->{interactive}) {
+        if ($ssh->config->get('interactive')) {
             my $prompt = sprintf "%s@%s's password: ",
-                $ssh->{user}, $ssh->{host};
+                $ssh->config->get('user'), $ssh->{host};
             $pass = _read_passphrase($prompt);
         }
         else {
@@ -43,8 +45,8 @@ sub authenticate {
     return 1 if $packet->type == SSH_SMSG_SUCCESS;
 
     if ($packet->type != SSH_SMSG_FAILURE) {
-        croak sprintf "Protocol error: got %d in response to SSH_CMSG_AUTH_PASSWORD",
-            $packet->type;
+        $ssh->fatal_disconnect(sprintf
+          "Protocol error: got %d in response to SSH_CMSG_AUTH_PASSWORD", $packet->type);
     }
 
     return 0;

@@ -1,9 +1,8 @@
-# $Id: Rhosts_RSA.pm,v 1.5 2001/02/22 00:55:11 btrott Exp $
+# $Id: Rhosts_RSA.pm,v 1.8 2001/02/24 01:39:13 btrott Exp $
 
 package Net::SSH::Perl::Auth::Rhosts_RSA;
 
 use strict;
-use Carp qw/croak/;
 use Digest::MD5 qw/md5/;
 
 use Net::SSH::Perl::Constants qw/
@@ -29,6 +28,9 @@ sub authenticate {
     my($packet);
     my $ssh = $auth->{ssh};
 
+    $ssh->debug("Rhosts-RSA authentication is disabled by the client."), return
+        unless $ssh->config->get('auth_rhosts_rsa');
+
     $ssh->debug("Trying rhosts or /etc/hosts.equiv with RSA host authentication.");
 
     my $private_key;
@@ -38,7 +40,7 @@ sub authenticate {
     $ssh->debug("Rhosts with RSA authentication failed: Can't load private host key."),
         return 0 if $@;
 
-    my $user = $ssh->{user};
+    my $user = $ssh->config->get('user');
     $packet = $ssh->packet_start(SSH_CMSG_AUTH_RHOSTS_RSA);
     $packet->put_str($user);
     $packet->put_int32($private_key->{bits});
@@ -54,7 +56,7 @@ sub authenticate {
     }
 
     if ($type != SSH_SMSG_AUTH_RSA_CHALLENGE) {
-        croak sprintf "Protocol error during RSA authentication: %d", $type;
+        $ssh->fatal_disconnect("Protocol error during RSA authentication: $type");
     }
     my $challenge = $packet->get_mp_int;
 
@@ -69,7 +71,7 @@ sub authenticate {
         return 1;
     }
     elsif ($type != SSH_SMSG_FAILURE) {
-        croak "Protocol error waiting RSA auth response: $type";
+        $ssh->fatal_disconnect("Protocol error waiting RSA auth response: $type");
     }
 
     $ssh->debug("Rhosts or /hosts.equiv with RSA host authentication refused.");

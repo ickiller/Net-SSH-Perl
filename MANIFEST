@@ -20,9 +20,13 @@ lib/Net/SSH/Perl/Cipher/CFB.pm
 lib/Net/SSH/Perl/Cipher/DES.pm
 lib/Net/SSH/Perl/Cipher/DES3.pm
 lib/Net/SSH/Perl/Cipher/IDEA.pm
+lib/Net/SSH/Perl/Config.pm
 lib/Net/SSH/Perl/Constants.pm
 lib/Net/SSH/Perl/Packet.pm
 lib/Net/SSH/Perl/Util.pm
 t/01-compile.t
 t/02-buffer.t
 t/03-packet.t
+t/04-config.t
+t/config
+t/test-common.pl

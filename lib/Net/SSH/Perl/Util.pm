@@ -1,4 +1,4 @@
-# $Id: Util.pm,v 1.5 2001/02/22 00:03:45 btrott Exp $
+# $Id: Util.pm,v 1.8 2001/02/28 23:26:04 btrott Exp $
 
 package Net::SSH::Perl::Util;
 use strict;
@@ -75,7 +75,8 @@ sub _check_host_in_hostfile {
     my($host, $host_file, $key) = @_;
     local *FH;
     open FH, $host_file or return HOST_CHANGED; # XXX: different return?
-    local $_;
+    local($_, $/);
+    $/ = "\n";
     my($status, $match, $hosts) = (HOST_NEW);
     while (<FH>) {
         chomp;
@@ -230,7 +231,12 @@ sub _rsa_public_encrypt {
     $aux = Math::GMP::mul_2exp_gmp($aux, 8 * ($input_len + 1));
     $aux = Math::GMP->new($aux + $input);
 
-    Math::GMP::powm_gmp($aux, $key->{e}, $key->{n});
+    _rsa_public($aux, $key);
+}
+
+sub _rsa_public {
+    my($input, $key) = @_;
+    Math::GMP::powm_gmp($input, $key->{e}, $key->{n});
 }
 
 sub _rsa_private_decrypt {
@@ -266,13 +272,10 @@ sub _rsa_private {
     $dp = $key->{d} % ($key->{p}-1);
     $dq = $key->{d} % ($key->{q}-1);
 
-    my $a = $input % $key->{p};
-    $p2 = Math::GMP::powm_gmp($a, $dp, $key->{p});
+    $p2 = Math::GMP::powm_gmp($input % $key->{p}, $dp, $key->{p});
+    $q2 = Math::GMP::powm_gmp($input % $key->{q}, $dq, $key->{q});
 
-    my $b = $input % $key->{q};
-    $q2 = Math::GMP::powm_gmp($b, $dq, $key->{q});
-
-    $k = Math::GMP::mmod_gmp(($q2 - $p2) * $key->{u}, $key->{q});
+    $k = (($q2 - $p2) * $key->{u}) % $key->{q};
     $p2 + ($key->{p} * $k);
 }
 
