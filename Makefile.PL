@@ -1,7 +1,12 @@
-# $Id: Makefile.PL,v 1.21 2001/06/03 22:30:33 btrott Exp $
+# $Id: Makefile.PL,v 1.22 2001/09/14 19:30:10 btrott Exp $
 
 use ExtUtils::MakeMaker qw( prompt WriteMakefile );
 use strict;
+
+my $is_sdk = 0;
+for my $arg (@ARGV) {
+    $is_sdk = 1, last if $arg eq '--sdk';
+}
 
 my %BASE_PREREQS = (
     1 => {
@@ -41,12 +46,25 @@ my @cryptmod = (
     [ 'RC4', '' ],
 );
 
-print<<MSG;
+if ($is_sdk) {
+    for my $mod (keys %{ $BASE_PREREQS{3} }) {
+        $prereq{$mod} = $BASE_PREREQS{3}{$mod};
+    }
+
+    for my $list (\@cryptmod) {
+        for my $ref (@$list) {
+            if ($ref->[1]) {
+                $prereq{$ref->[1]} = $ref->[2] ? $ref->[2] : 0;
+            }
+        }
+    }
+} else {
+    print<<MSG;
 This is Net::SSH::Perl.
 
 MSG
 
-print<<MSG;
+    print<<MSG;
 As of version 1.00, Net::SSH::Perl supports both the SSH1 and
 SSH2 protocols natively. The two protocols have different
 module prerequisitives, so you need to decide which protocol(s)
@@ -58,19 +76,19 @@ is the default).
 
 MSG
 
-for my $i (1..2) {
-    printf "    [%d] SSH%d\n", $i, $i;
-}
-printf "    [3] Both SSH1 and SSH2\n";
+    for my $i (1..2) {
+        printf "    [%d] SSH%d\n", $i, $i;
+    }
+    printf "    [3] Both SSH1 and SSH2\n";
 
-my $p = prompt("\nWhich protocol(s) do you plan to use?", 3);
-print "\n";
+    my $p = prompt("\nWhich protocol(s) do you plan to use?", 3);
+    print "\n";
 
-for my $mod (keys %{ $BASE_PREREQS{$p} }) {
-    $prereq{$mod} = $BASE_PREREQS{$p}{$mod};
-}
+    for my $mod (keys %{ $BASE_PREREQS{$p} }) {
+        $prereq{$mod} = $BASE_PREREQS{$p}{$mod};
+    }
 
-print<<MSG;
+    print<<MSG;
 
 Some of the Net::SSH::Perl ciphers depend on a Crypt:: module from
 CPAN. You may already have the necessary modules installed, in which
@@ -79,31 +97,31 @@ to install at least one cipher to use Net::SSH::Perl. Please choose
 at least one from the following list (Crypt::IDEA is the default).
 
 MSG
-my $i = 1;
-for my $ciph (sort { $a->[0] <=> $b->[0] } @cryptmod) {
-    printf "    [%d] %s\n", $i++, $ciph->[0];
-}
-my $c = prompt("\nEnter your choices, separated by spaces:", 1);
-print "\n";
-
-for my $id (split /\s+/, $c) {
-    next unless $cryptmod[$id-1]->[1];
-    $prereq{ $cryptmod[$id-1]->[1] } = '0';
-}
-
-print "\nChecking for required modules\n\n";
-my(%todo, $missing);
-while (my($k, $v) = each %prereq) {
-    unless (check_module($k, $v, \$missing)) {
-        $todo{$k} = $v;
+    my $i = 1;
+    for my $ciph (sort { $a->[0] <=> $b->[0] } @cryptmod) {
+        printf "    [%d] %s\n", $i++, $ciph->[0];
     }
-}
+    my $c = prompt("\nEnter your choices, separated by spaces:", 1);
+    print "\n";
 
-use Cwd;
-my $cwd = cwd();
+    for my $id (split /\s+/, $c) {
+        next unless $cryptmod[$id-1]->[1];
+        $prereq{ $cryptmod[$id-1]->[1] } = '0';
+    }
 
-if (%todo) {
-    print <<MSG;
+    print "\nChecking for required modules\n\n";
+    my(%todo, $missing);
+    while (my($k, $v) = each %prereq) {
+        unless (check_module($k, $v, \$missing)) {
+            $todo{$k} = $v;
+        }
+    }
+
+    use Cwd;
+    my $cwd = cwd();
+
+    if (%todo) {
+        print <<MSG;
 Net::SSH::Perl depends on several external modules for functionality.
 Some of these modules can not be found on your system; they can be
 installed automatically for you. To do so will require loading the
@@ -114,43 +132,45 @@ install them to use Net::SSH::Perl.
 
 MSG
 
-    while (my($k, $v) = each %todo) {
-        if (prompt(sprintf("%s%s not installed/out of date. Install (y/n)?",
-          $k, $v ? " (ver. $v)" : ""), "y") =~ /^y/) {
-            require CPAN; CPAN::Shell->install($k);
-            delete $prereq{$k};
-            chdir $cwd or die "Can't chdir back to $cwd: $!";
+        while (my($k, $v) = each %todo) {
+            if (prompt(sprintf("%s%s not installed/out of date. Install (y/n)?",
+              $k, $v ? " (ver. $v)" : ""), "y") =~ /^y/) {
+                require CPAN; CPAN::Shell->install($k);
+                delete $prereq{$k};
+                chdir $cwd or die "Can't chdir back to $cwd: $!";
+            }
         }
     }
-}
 
-print "\nChecking for optional modules\n\n";
+    print "\nChecking for optional modules\n\n";
 
-unless (check_module('Digest::BubbleBabble', 0.01, \$missing)) {
-    print<<MSG, "\n";
+    unless (check_module('Digest::BubbleBabble', 0.01, \$missing)) {
+        print<<MSG, "\n";
 Digest::BubbleBabble is required if you want to generate bubble babble
 key fingerprints with pssh-keygen.
 MSG
-    if (read_yes_or_no("Would you like to install it now? (y/n)", "y")) {
-        require CPAN; CPAN::Shell->install('Digest::BubbleBabble');
-        chdir $cwd or die "Can't chdir back to $cwd: $!";
+        if (read_yes_or_no("Would you like to install it now? (y/n)", "y")) {
+            require CPAN; CPAN::Shell->install('Digest::BubbleBabble');
+            chdir $cwd or die "Can't chdir back to $cwd: $!";
+        }
+        print "\n";
     }
-    print "\n";
-}
 
-unless (check_module('Crypt::RSA', 1.37, \$missing)) {
-    print<<MSG, "\n";
+    unless (check_module('Crypt::RSA', 1.37, \$missing)) {
+        print<<MSG, "\n";
 Crypt::RSA is required if you wish to use the ssh-rsa public
 key algorithm (ssh-dss is used by default).
 MSG
-    if (read_yes_or_no("Would you like to install it now? (y/n)", "y")) {
-        require CPAN; CPAN::Shell->install('Crypt::RSA');
-        chdir $cwd or die "Can't chdir back to $cwd: $!";
+        if (read_yes_or_no("Would you like to install it now? (y/n)", "y")) {
+            require CPAN; CPAN::Shell->install('Crypt::RSA');
+            chdir $cwd or die "Can't chdir back to $cwd: $!";
+        }
+        print "\n";
     }
+
     print "\n";
 }
 
-print "\n";
 WriteMakefile(
     NAME => 'Net::SSH::Perl',
     DISTNAME => 'Net-SSH-Perl',

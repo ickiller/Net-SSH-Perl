@@ -1,4 +1,4 @@
-$Id: ToDo,v 1.18 2001/06/03 23:42:17 btrott Exp $
+$Id: ToDo,v 1.19 2001/09/14 19:21:53 btrott Exp $
 
 Add more tests to the test suite; add SSH2 tests.
 
@@ -21,3 +21,5 @@ Use non-blocking connect, like IO::Socket, to implement a
 connect Timeout.
 
 A proper scp client.
+
+Port forwarding.

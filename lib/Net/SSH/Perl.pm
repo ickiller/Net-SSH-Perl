@@ -1,4 +1,4 @@
-# $Id: Perl.pm,v 1.107 2001/08/28 23:40:57 btrott Exp $
+# $Id: Perl.pm,v 1.108 2001/10/04 20:29:19 btrott Exp $
 
 package Net::SSH::Perl;
 use strict;
@@ -22,7 +22,7 @@ eval {
     $HOSTNAME = hostname();
 };
 
-$VERSION = '1.22';
+$VERSION = '1.23';
 
 sub VERSION { $VERSION }
 

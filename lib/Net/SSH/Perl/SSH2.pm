@@ -1,4 +1,4 @@
-# $Id: SSH2.pm,v 1.33 2001/08/07 18:19:31 btrott Exp $
+# $Id: SSH2.pm,v 1.34 2001/10/04 20:29:08 btrott Exp $
 
 package Net::SSH::Perl::SSH2;
 use strict;
@@ -18,6 +18,8 @@ use Net::SSH::Perl;
 use base qw( Net::SSH::Perl );
 
 use Carp qw( croak );
+
+sub select_class { 'IO::Select' }
 
 sub _dup {
     my($fh, $mode) = @_;
@@ -271,6 +273,7 @@ sub client_loop {
     my $cmgr = $ssh->channel_mgr;
 
     my $h = $cmgr->handlers;
+    my $select_class = $ssh->select_class;
 
     CLOOP:
     $ssh->{_cl_quit_pending} = 0;
@@ -287,8 +290,8 @@ sub client_loop {
 
         $cmgr->process_output_packets;
 
-        my $rb = IO::Select->new;
-        my $wb = IO::Select->new;
+        my $rb = $select_class->new;
+        my $wb = $select_class->new;
         $rb->add($ssh->sock);
         $cmgr->prepare_channels($rb, $wb);
 
@@ -296,7 +299,7 @@ sub client_loop {
         my $oc = grep { defined } @{ $cmgr->{channels} };
         last unless $oc > 1;
 
-        my($rready, $wready) = IO::Select->select($rb, $wb);
+        my($rready, $wready) = $select_class->select($rb, $wb);
         $cmgr->process_input_packets($rready, $wready);
 
         for my $a (@$rready) {

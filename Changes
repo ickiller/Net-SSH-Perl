@@ -1,6 +1,11 @@
-$Id: Changes,v 1.76 2001/08/28 23:40:56 btrott Exp $
+$Id: Changes,v 1.79 2001/10/04 20:29:48 btrott Exp $
 
 Revision history for Net::SSH::Perl
+
+1.23  2001.10.04
+    - Added --sdk option to Makefile.PL.
+    - Added Net::SSH::Perl::SSH2::select_class so that Net::SSH::W32Perl
+      can override it and reuse client_loop.
 
 1.22  2001.08.28
     - Fixed bug with channel window sizes: Net::SSH::Perl in SSH-2 mode
