@@ -1,6 +1,16 @@
-$Id: Changes,v 1.48 2001/05/11 22:17:15 btrott Exp $
+$Id: Changes,v 1.49 2001/05/14 07:52:37 btrott Exp $
 
 Revision history for Net::SSH::Perl
+
+1.12  2001.05.13
+    - Added ChannelMgr::register_handler to set handlers for
+      specific packet types for all channels. Moved default
+      handler initialization into init method.
+    - Abstracted quit_pending behavior into two methods,
+      break_client_loop and _quit_pending. The former can be
+      used by packet handlers, buffer handlers, etc. to force
+      breaking out of the client loop.
+    - Added length arg to mp2bin.
 
 1.11  2001.05.11
     - Auto-detect SSH2 private key files as identity files and read

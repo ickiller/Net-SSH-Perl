@@ -1,4 +1,4 @@
-# $Id: SSH2MP.pm,v 1.1 2001/04/16 16:08:25 btrott Exp $
+# $Id: SSH2MP.pm,v 1.2 2001/05/13 22:10:14 btrott Exp $
 
 package Net::SSH::Perl::Util::SSH2MP;
 use strict;
@@ -19,7 +19,8 @@ sub bin2mp {
 }
 
 sub mp2bin {
-    my $p = shift;
+    my($p, $l) = @_;
+    $l ||= 0;
     my $base = PARI(256);
     my $res = '';
     {
@@ -34,6 +35,8 @@ sub mp2bin {
             $res = chr($d) . $res;
         }
     }
+    $res = "\0" x ($l-length($res)) . $res
+        if length($res) < $l;
     $res;
 }
 

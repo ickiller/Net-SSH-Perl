@@ -1,4 +1,4 @@
-# $Id: ChannelMgr.pm,v 1.2 2001/04/24 23:53:53 btrott Exp $
+# $Id: ChannelMgr.pm,v 1.3 2001/05/12 05:58:31 btrott Exp $
 
 package Net::SSH::Perl::ChannelMgr;
 use strict;
@@ -20,6 +20,16 @@ sub new {
 sub init {
     my $cmgr = shift;
     $cmgr->{channels} = [];
+    $cmgr->{handlers} = {
+        SSH2_MSG_CHANNEL_CLOSE() => \&input_oclose,
+        SSH2_MSG_CHANNEL_DATA() => \&input_data,
+        SSH2_MSG_CHANNEL_EOF() => \&input_eof,
+        SSH2_MSG_CHANNEL_EXTENDED_DATA() => \&input_extended_data,
+        SSH2_MSG_CHANNEL_OPEN_CONFIRMATION() => \&input_open_confirmation,
+        SSH2_MSG_CHANNEL_OPEN_FAILURE() => \&input_open_failure,
+        SSH2_MSG_CHANNEL_REQUEST() => \&input_channel_request,
+        SSH2_MSG_CHANNEL_WINDOW_ADJUST() => \&input_window_adjust,
+    };
 }
 
 sub new_channel {
@@ -171,19 +181,13 @@ sub input_window_adjust {
     $c->{remote_window} += $packet->get_int32;
 }
 
-sub handlers {
+sub register_handler {
     my $cmgr = shift;
-    return {
-        SSH2_MSG_CHANNEL_CLOSE() => \&input_oclose,
-        SSH2_MSG_CHANNEL_DATA() => \&input_data,
-        SSH2_MSG_CHANNEL_EOF() => \&input_eof,
-        SSH2_MSG_CHANNEL_EXTENDED_DATA() => \&input_extended_data,
-        SSH2_MSG_CHANNEL_OPEN_CONFIRMATION() => \&input_open_confirmation,
-        SSH2_MSG_CHANNEL_OPEN_FAILURE() => \&input_open_failure,
-        SSH2_MSG_CHANNEL_REQUEST() => \&input_channel_request,
-        SSH2_MSG_CHANNEL_WINDOW_ADJUST() => \&input_window_adjust,
-    }
+    my($type, $code) = @_;
+    $cmgr->{handlers}->{ $type } = $code;
 }
+
+sub handlers { $_[0]->{handlers} }
 
 1;
 __END__

@@ -1,4 +1,4 @@
-# $Id: SSH2.pm,v 1.22 2001/05/08 06:07:53 btrott Exp $
+# $Id: SSH2.pm,v 1.25 2001/05/14 07:49:42 btrott Exp $
 
 package Net::SSH::Perl::SSH2;
 use strict;
@@ -210,6 +210,7 @@ sub cmd {
         });
     }
 
+    $ssh->debug("Entering interactive session.");
     $ssh->client_loop;
 
     ($stdout, $stderr, $exit);
@@ -244,8 +245,12 @@ sub shell {
         syswrite STDERR, $_[1]->bytes;
     });
 
+    $ssh->debug("Entering interactive session.");
     $ssh->client_loop;
 }
+
+sub break_client_loop { $_[0]->{_cl_quit_pending} = 1 }
+sub _quit_pending { $_[0]->{_cl_quit_pending} }
 
 sub client_loop {
     my $ssh = shift;
@@ -253,11 +258,9 @@ sub client_loop {
 
     my $h = $cmgr->handlers;
 
-    $ssh->debug("Entering interactive session.");
-
     CLOOP:
-    my $quit_pending = 0;
-    while (!$quit_pending) {
+    $ssh->{_cl_quit_pending} = 0;
+    while (!$ssh->_quit_pending) {
         while (my $packet = Net::SSH::Perl::Packet->read_poll($ssh)) {
             if (my $code = $h->{ $packet->type }) {
                 $code->($cmgr, $packet);
@@ -266,6 +269,7 @@ sub client_loop {
                 $ssh->debug("Warning: ignore packet type " . $packet->type);
             }
         }
+        last if $ssh->_quit_pending;
 
         my $rb = IO::Select->new;
         my $wb = IO::Select->new;
@@ -283,7 +287,7 @@ sub client_loop {
             if ($a == $ssh->{session}{sock}) {
                 my $buf;
                 my $len = sysread $a, $buf, 8192;
-                $quit_pending = 1 if $len == 0;
+                $ssh->break_client_loop if $len == 0;
                 ($buf) = $buf =~ /(.*)/s;  ## Untaint data. Anything allowed.
                 $ssh->incoming_data->append($buf);
             }
