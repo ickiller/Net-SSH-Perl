@@ -1,4 +1,4 @@
-# $Id: SSH2.pm,v 1.20 2001/04/24 23:23:43 btrott Exp $
+# $Id: SSH2.pm,v 1.21 2001/05/05 03:39:04 btrott Exp $
 
 package Net::SSH::Perl::SSH2;
 use strict;
@@ -132,6 +132,7 @@ sub _login {
             }
             else {
                 $auth->enabled(0);
+                $found = 0;
             }
         }
         last unless $found;

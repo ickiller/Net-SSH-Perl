@@ -1,8 +1,14 @@
-$Id: Changes,v 1.39 2001/05/04 17:26:52 btrott Exp $
+$Id: Changes,v 1.40 2001/05/05 03:39:03 btrott Exp $
 
 Revision history for Net::SSH::Perl
 
-1.04
+1.05  2001.05.04
+    - Fixed bug when entering password at prompt; entering an
+      incorrect password more than three times would cause the
+      authentication to hang. Thanks go Matt Good (mgood@nextdoor.com)
+      for the spot and a fix.
+
+1.04  2001.05.04
     - Fixed bug in version/protocol exchange that was causing a DSA
       signature verification error. I was cutting off just a newline,
       and some versions of ssh2 were sending ctrl-M characters as
