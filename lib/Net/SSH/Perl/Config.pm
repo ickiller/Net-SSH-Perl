@@ -1,9 +1,10 @@
-# $Id: Config.pm,v 1.8 2001/03/08 20:33:01 btrott Exp $
+# $Id: Config.pm,v 1.9 2001/03/13 05:27:46 btrott Exp $
 
 package Net::SSH::Perl::Config;
 use strict;
 
-use vars qw( %DIRECTIVES );
+use vars qw( %DIRECTIVES $AUTOLOAD );
+use Carp qw( croak );
 
 %DIRECTIVES = (
     Host                    => [ \&_host ],
@@ -109,6 +110,17 @@ sub _set_yesno {
     else {
         warn "Configuration setting for '$key' must be 'yes' or 'no'";
     }
+}
+
+sub AUTOLOAD {
+    my $cfg = shift;
+    (my $variable = $AUTOLOAD) =~ s/.*:://;
+    return if $variable eq 'DESTROY';
+
+    croak "No such configuration option $variable"
+        unless exists $cfg->{o}{$variable};
+
+    return @_ ? $cfg->set($variable, @_) : $cfg->get($variable);
 }
 
 1;

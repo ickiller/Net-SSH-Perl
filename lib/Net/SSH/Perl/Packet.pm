@@ -1,4 +1,4 @@
-# $Id: Packet.pm,v 1.8 2001/03/06 00:33:59 btrott Exp $
+# $Id: Packet.pm,v 1.9 2001/03/14 04:22:45 btrott Exp $
 
 package Net::SSH::Perl::Packet;
 
@@ -46,6 +46,10 @@ sub read {
             next if $! == EAGAIN || $! == EWOULDBLOCK;
             croak "Read from socket failed: $!";
         }
+
+        ## Untaint data read from sshd. This is binary data,
+        ## so there's nothing to taint-check against/for.
+        ($buf) = $buf =~ /(.*)/s;
         $ssh->incoming_data->append($buf);
     }
 }

@@ -1,4 +1,4 @@
-# $Id: Password.pm,v 1.8 2001/03/05 22:54:25 btrott Exp $
+# $Id: Password.pm,v 1.9 2001/03/13 05:08:07 btrott Exp $
 
 package Net::SSH::Perl::Auth::Password;
 
@@ -29,8 +29,22 @@ sub authenticate {
     $ssh->debug("Trying password authentication.");
     if (!$pass) {
         if ($ssh->config->get('interactive')) {
-            my $prompt = sprintf "%s@%s's password: ",
-                $ssh->config->get('user'), $ssh->{host};
+            my $prompt;
+            my($prompt_host, $prompt_login) = map $ssh->config->get($_),
+                qw( password_prompt_host password_prompt_login );
+            if ($prompt_host && $prompt_login) {
+                $prompt = sprintf "%s@%s's password: ",
+                    $ssh->config->get('user'), $ssh->{host};
+            }
+            elsif (!$prompt_host && !$prompt_login) {
+                $prompt = "Password: ";
+            }
+            elsif ($prompt_login) {
+                $prompt = sprintf "%s's password: ", $ssh->config->get('user');
+            }
+            else {
+                $prompt = sprintf "%s password: ", $ssh->{host};
+            }
             $pass = _read_passphrase($prompt);
         }
         else {

@@ -1,4 +1,4 @@
-# $Id: Util.pm,v 1.10 2001/03/07 20:18:18 btrott Exp $
+# $Id: Util.pm,v 1.12 2001/03/14 04:22:45 btrott Exp $
 
 package Net::SSH::Perl::Util;
 use strict;
@@ -27,16 +27,19 @@ use base qw( Exporter );
     _add_host_to_hostfile
     _load_private_key
     _load_public_key
+    _save_private_key
     _respond_to_rsa_challenge
     _rsa_public_encrypt
     _rsa_private_decrypt
     _read_passphrase
 );
 %EXPORT_TAGS = (
-    hosts => [ qw( _check_host_in_hostfile _add_host_to_hostfile ) ],
-    rsa   => [ qw( _rsa_public_encrypt _rsa_private_decrypt _respond_to_rsa_challenge ) ],
-    mp    => [ qw( _compute_session_id _mp_linearize ) ],
-    all   => [ @EXPORT_OK ],
+    hosts    => [ qw( _check_host_in_hostfile _add_host_to_hostfile ) ],
+    rsa      => [ qw( _rsa_public_encrypt _rsa_private_decrypt
+                      _respond_to_rsa_challenge ) ],
+    mp       => [ qw( _compute_session_id _mp_linearize ) ],
+    authfile => [ qw( _load_public_key _load_private_key _save_private_key ) ],
+    all      => [ @EXPORT_OK ],
 );
 
 ## crc32 checksum.
@@ -112,6 +115,7 @@ sub _load_public_key {
     open FH, $key_file or croak "Can't open $key_file: $!";
     my $c = do { local $/; <FH> };
     close FH or die "Can't close $key_file: $!";
+    ($c) = $c =~ /(.*)/s;  ## Untaint data. Anything is allowed.
 
     my $buffer = Net::SSH::Perl::Buffer->new;
     $buffer->append($c);
@@ -135,11 +139,13 @@ sub _load_public_key {
 
 sub _load_private_key {
     my($key_file, $passphrase) = @_;
+    $passphrase ||= '';
 
     local *FH;
     open FH, $key_file or croak "Can't open $key_file: $!";
     my $c = do { local $/; <FH> };
     close FH or die "Can't close $key_file: $!";
+    ($c) = $c =~ /(.*)/s;  ## Untaint data. Anything is allowed.
 
     my $buffer = Net::SSH::Perl::Buffer->new;
     $buffer->append($c);
@@ -148,7 +154,7 @@ sub _load_private_key {
     croak "Bad key file $key_file." unless $id eq PRIVATE_KEY_ID_STRING;
     $buffer->bytes(0, 1, "");
 
-    my $cipher_type = unpack "c", $buffer->get_char;
+    my $cipher_type = $buffer->get_int8;
     $buffer->get_int32;  ## Reserved data.
 
     my $key = {};
@@ -164,7 +170,8 @@ sub _load_private_key {
             $cipher_name, $key_file;
     }
 
-    my $ciph = Net::SSH::Perl::Cipher->new_from_key_str($cipher_name, $passphrase);
+    my $ciph =
+        Net::SSH::Perl::Cipher->new_from_key_str($cipher_name, $passphrase);
     my $decrypted = $ciph->decrypt($buffer->bytes($buffer->offset));
     $buffer->empty;
     $buffer->append($decrypted);
@@ -182,6 +189,48 @@ sub _load_private_key {
     $key->{q} = $buffer->get_mp_int;
 
     wantarray ? ($key, $comment) : $key;
+}
+
+sub _save_private_key {
+    my($key_file, $key, $passphrase, $comment) = @_;
+    $passphrase ||= '';
+
+    my $cipher_type = $passphrase eq '' ? 'None' : 'DES3';
+
+    my $buffer = Net::SSH::Perl::Buffer->new;
+    my($check1, $check2);
+    $buffer->put_int8($check1 = int rand 255);
+    $buffer->put_int8($check2 = int rand 255);
+    $buffer->put_int8($check1);
+    $buffer->put_int8($check2);
+
+    $buffer->put_mp_int($key->{d});
+    $buffer->put_mp_int($key->{u});
+    $buffer->put_mp_int($key->{p});
+    $buffer->put_mp_int($key->{q});
+
+    $buffer->put_int8(0)
+        while $buffer->length % 8;
+
+    my $encrypted = Net::SSH::Perl::Buffer->new;
+    $encrypted->put_chars(PRIVATE_KEY_ID_STRING);
+    $encrypted->put_int8(0);
+    $encrypted->put_int8(Net::SSH::Perl::Cipher::id($cipher_type));
+    $encrypted->put_int32(0);
+
+    $encrypted->put_int32($key->{bits});
+    $encrypted->put_mp_int($key->{n});
+    $encrypted->put_mp_int($key->{e});
+    $encrypted->put_str($comment || '');
+
+    my $cipher =
+        Net::SSH::Perl::Cipher->new_from_key_str($cipher_type, $passphrase);
+    $encrypted->append( $cipher->encrypt($buffer->bytes) );
+
+    local *FH;
+    open FH, ">$key_file" or croak "Can't open $key_file: $!";
+    print FH $encrypted->bytes;
+    close FH or croak "Can't close $key_file: $!";
 }
 
 sub _read_passphrase {
@@ -326,6 +375,12 @@ Routines associated with multiple-precision integers and the
 generation and manipulation of same. Contains C<_mp_linearize>
 and C<_compute_session_id>.
 
+=item * authfile
+
+Routines associated with loading of RSA SSH keys (both public
+and private) from keyfiles. Contains C<_load_public_key>,
+C<_load_private_key>, and C<_save_private_key>.
+
 =item * all
 
 All routines. Contains all of the routines listed below.
@@ -402,11 +457,13 @@ reference with three keys: I<bits>, I<n>, and I<e>. I<n>
 and I<e> and multiple-precision integers (I<Math::GMP>
 objects).
 
-=head2 _load_private_key($key_file, $passphrase)
+=head2 _load_private_key($key_file [, $passphrase ])
 
 Given the location of a private key file I<$key_file>,
 and an optional passphrase to decrypt the key, reads the
-private key from that file.
+private key from that file. If I<$passphrase> is not
+supplied, an empty passphrase (the empty string) is tried
+instead.
 
 If called in list context, returns the key and the comment
 associated with the key. If called in scalar context,
@@ -419,9 +476,31 @@ file is encrypted using an unsupported encryption cipher;
 or the passphrase I<$passphrase> is incorrect.
 
 The key returned is in the form of a private key--a hash
-reference with there keys: I<bits>, I<n>, I<e>, I<d>,
+reference with seven keys: I<bits>, I<n>, I<e>, I<d>,
 I<u>, I<p>, and I<q>. All but I<bits> are multiple-precision
 integers (I<Math::GMP> objects).
+
+=head2 _save_private_key($key_file, $key, [ $passphrase [, $comment ]])
+
+Given a private key I<$key>, and the location of the private
+key file I<$key_file>, writes out an SSH RSA key file to
+I<$key_file>.
+
+If I<$passphrase> is supplied, the private key portion of
+the file is encrypted with I<3DES> encryption, using the
+passphrase I<$passphrase>. If the passphrase is not supplied,
+an empty passphrase will be used instead. This is useful
+when using RSA authentication in a non-interactive process,
+for example.
+
+I<$comment> is an optional string that, if supplied, is
+inserted into the key file and can be used by clients when
+prompting for the passphrase upon loading the private key,
+etc. It should be somewhat descriptive of this key file.
+
+I<$key> should be a hash reference with seven keys: I<bits>,
+I<n>, I<e>, I<d>, I<u>, I<p>, and I<q>. All but I<bits> are
+multiple-precision integers (I<Math::GMP> objects).
 
 =head2 _read_passphrase($prompt)
 

@@ -1,6 +1,22 @@
-$Id: Changes,v 1.19 2001/03/09 19:18:16 btrott Exp $
+$Id: Changes,v 1.22 2001/03/14 04:22:56 btrott Exp $
 
 Revision history for Net::SSH::Perl
+
+0.64
+    - fixed bug in Net::SSH::Perl::Cipher::new_from_key_str;
+      empty key string (passphrase) was broken. This never
+      cropped up in regular usage, only in testing.
+    - added _save_private_key function to Net::SSH::Perl::Util,
+      used to save private key files.
+    - added cipher tests (05-cipher.t).
+    - PasswordPromptLogin and PasswordPromptHost config options
+      are now supported (on by default).
+    - added untainting code for all places where data is read
+      from external sources (ie. socket, key files, etc.),
+      which should fix the "Corrupted check bytes" errors when
+      using -T. It was breaking because substr replacement
+      doesn't work on tainted values. See this p5p thread:
+      http://www.xray.mpe.mpg.de/mailing-lists/perl5-porters/2000-09/msg00799.html
 
 0.63  2001.03.09
     - added documentation to pssh (eg/pssh), as well as a -V

@@ -1,4 +1,4 @@
-# $Id: Perl.pm,v 1.41 2001/03/09 19:29:27 btrott Exp $
+# $Id: Perl.pm,v 1.44 2001/03/14 04:22:43 btrott Exp $
 
 package Net::SSH::Perl;
 use strict;
@@ -20,9 +20,11 @@ use Symbol;
 use Math::GMP;
 use Carp qw( croak );
 use Sys::Hostname;
-$HOSTNAME = hostname();
+eval {
+    $HOSTNAME = hostname();
+};
 
-$VERSION = "0.63";
+$VERSION = "0.64";
 
 sub new {
     my $class = shift;
@@ -91,6 +93,13 @@ sub _init {
     }
     unless (my $if = $ssh->{config}->get('identity_files')) {
         $ssh->{config}->set('identity_files', [ "$ENV{HOME}/.ssh/identity" ]);
+    }
+
+    unless (defined $ssh->{config}->get('password_prompt_login')) {
+        $ssh->{config}->set('password_prompt_login', 1);
+    }
+    unless (defined $ssh->{config}->get('password_prompt_host')) {
+        $ssh->{config}->set('password_prompt_host', 1);
     }
 
     # Turn on all auth methods we support unless otherwise instructed.
@@ -218,7 +227,9 @@ sub _exchange_identification {
 
 sub debug {
     my $ssh = shift;
-    print STDERR "$HOSTNAME: @_\n" if $ssh->{config}->get('debug');
+    if ($ssh->{config}->get('debug')) {
+        printf STDERR "%s@_\n", $HOSTNAME ? "$HOSTNAME: " : '';
+    }
 }
 
 sub login {
@@ -432,7 +443,8 @@ sub _setup_connection {
         $ssh->debug("Requesting pty.");
         my($packet);
         $packet = $ssh->packet_start(SSH_CMSG_REQUEST_PTY);
-        $packet->put_str($ENV{TERM});
+        my($term) = $ENV{TERM} =~ /(\w+)/;
+        $packet->put_str($term);
         $packet->put_int32(0) for 1..4;
         $packet->put_int8(0);
         $packet->send;
@@ -522,11 +534,13 @@ sub _start_interactive {
             if ($a == $ssh->{session}{sock}) {
                 my $buf;
                 sysread $a, $buf, 8192;
+                ($buf) = $buf =~ /(.*)/s;  ## Untaint data. Anything allowed.
                 $ssh->incoming_data->append($buf);
             }
             elsif ($a == \*STDIN) {
                 my $buf;
                 sysread STDIN, $buf, 8192;
+                ($buf) = $buf =~ /(.*)/s;  ## Untaint data. Anything allowed.
                 my $packet = $ssh->packet_start(SSH_CMSG_STDIN_DATA);
                 $packet->put_str($buf);
                 $packet->send;

@@ -1,4 +1,4 @@
-# $Id: Cipher.pm,v 1.4 2001/03/05 22:55:01 btrott Exp $
+# $Id: Cipher.pm,v 1.5 2001/03/12 19:02:17 btrott Exp $
 
 package Net::SSH::Perl::Cipher;
 
@@ -43,7 +43,7 @@ sub new {
 
 sub new_from_key_str {
     my $class = shift;
-    $_[1] ?
+    defined $_[1] ?
         $class->new($_[0], md5($_[1])) :
         $class->new(@_);
 }

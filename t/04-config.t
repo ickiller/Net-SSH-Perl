@@ -1,3 +1,5 @@
+# $Id: 04-config.t,v 1.6 2001/03/09 21:46:50 btrott Exp $
+
 use strict;
 
 use vars qw( $CFG_FILE );

@@ -28,5 +28,6 @@ t/01-compile.t
 t/02-buffer.t
 t/03-packet.t
 t/04-config.t
+t/05-cipher.t
 t/config
 t/test-common.pl
