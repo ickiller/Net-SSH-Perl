@@ -1,21 +1,20 @@
-# $Id: Rhosts_RSA.pm,v 1.8 2001/02/24 01:39:13 btrott Exp $
+# $Id: Rhosts_RSA.pm,v 1.9 2001/03/05 22:54:25 btrott Exp $
 
 package Net::SSH::Perl::Auth::Rhosts_RSA;
 
 use strict;
-use Digest::MD5 qw/md5/;
 
-use Net::SSH::Perl::Constants qw/
+use Net::SSH::Perl::Constants qw(
     SSH_SMSG_FAILURE
     SSH_SMSG_SUCCESS
     SSH_CMSG_AUTH_RHOSTS_RSA
     SSH_SMSG_AUTH_RSA_CHALLENGE
-    SSH_CMSG_AUTH_RSA_RESPONSE/;
+    SSH_CMSG_AUTH_RSA_RESPONSE );
 
-use Net::SSH::Perl::Util qw/:rsa _load_private_key _mp_linearize/;
+use Net::SSH::Perl::Util qw( :rsa _load_private_key _mp_linearize );
 use Net::SSH::Perl::Packet;
 use Net::SSH::Perl::Auth;
-use base qw/Net::SSH::Perl::Auth/;
+use base qw( Net::SSH::Perl::Auth );
 
 sub new {
     my $class = shift;

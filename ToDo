@@ -1,8 +1,9 @@
-$Id: ToDo,v 1.10 2001/03/03 06:50:37 btrott Exp $
+$Id: ToDo,v 1.11 2001/03/08 01:46:52 btrott Exp $
 
 Is there any way to use Rhosts-RSA auth without running as root?
 
 Add more tests to the test suite.
 
 Can we run multiple commands in the same SSH session? Perhaps open
-up a shell on the remote machine?
+up a shell on the remote machine? The trouble with this is that
+it requires parsing the STDOUT data for the command line prompt.

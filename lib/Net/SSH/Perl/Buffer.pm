@@ -1,4 +1,4 @@
-# $Id: Buffer.pm,v 1.4 2001/02/22 00:04:09 btrott Exp $
+# $Id: Buffer.pm,v 1.5 2001/03/05 22:55:48 btrott Exp $
 
 package Net::SSH::Perl::Buffer;
 use strict;
@@ -19,6 +19,12 @@ sub empty {
 sub append {
     my $buf = shift;
     $buf->{buf} .= $_[0];
+}
+
+sub consume {
+    my $buf = shift;
+    my $len = shift;
+    substr $buf->{buf}, 0, $len, '';
 }
 
 sub bytes {

@@ -1,14 +1,19 @@
-# $Id: Packet.pm,v 1.6 2001/03/03 05:32:08 btrott Exp $
+# $Id: Packet.pm,v 1.8 2001/03/06 00:33:59 btrott Exp $
 
 package Net::SSH::Perl::Packet;
 
 use strict;
-use Carp qw/croak/;
+use Carp qw( croak );
+use IO::Select;
+use POSIX qw( :errno_h );
 
 use Net::SSH::Perl;
-use Net::SSH::Perl::Constants qw/SSH_MSG_DISCONNECT SSH_MSG_DEBUG MAX_PACKET_SIZE/;
+use Net::SSH::Perl::Constants qw(
+    SSH_MSG_DISCONNECT
+    SSH_MSG_DEBUG
+    MAX_PACKET_SIZE );
 use Net::SSH::Perl::Buffer;
-use Net::SSH::Perl::Util qw/_crc32/;
+use Net::SSH::Perl::Util qw( _crc32 );
 
 sub new {
     my $class = shift;
@@ -28,28 +33,37 @@ sub read {
     my $ssh = shift;
     my $sock = $ssh->sock;
 
-    my $buffer = Net::SSH::Perl::Buffer->new;
-
-    if (my $lo = $ssh->in_leftover) {
-        $buffer->append($lo);
-        $ssh->in_leftover("");
-    }
-
-    my($pad_len, $len);
-    {
-        $len = unpack "N", $buffer->bytes(0, 4);
-        $len = 0 unless defined $len;
-        $pad_len = ($len + 8) & ~7;
-
-        if ($buffer->length < 4 + $pad_len) {
-            my $buf;
-            sysread $sock, $buf, 8192;
-            $buffer->append($buf);
-            redo;
+    while (1) {
+        if (my $packet = $class->read_poll($ssh)) {
+            return $packet;
         }
+        my $s = IO::Select->new( $sock );
+        my @ready = $s->can_read;
+        my $buf;
+        my $len = sysread $sock, $buf, 8192;
+        croak "Connection closed by remote host." if $len == 0;
+        if (!defined $len) {
+            next if $! == EAGAIN || $! == EWOULDBLOCK;
+            croak "Read from socket failed: $!";
+        }
+        $ssh->incoming_data->append($buf);
     }
+}
 
-    $ssh->in_leftover($buffer->bytes($pad_len+4, $buffer->length, ""));
+sub read_poll {
+    my $class = shift;
+    my $ssh = shift;
+
+    my $incoming = $ssh->incoming_data;
+    return if $incoming->length < 4 + 8;
+
+    my $len = unpack "N", $incoming->bytes(0, 4);
+    $len = 0 unless defined $len;
+    my $pad_len = ($len + 8) & ~7;
+    return if $incoming->length < 4 + $pad_len;
+
+    my $buffer = Net::SSH::Perl::Buffer->new;
+    $buffer->append($incoming->bytes(0, $pad_len+4, ''));
 
     $buffer->bytes(0, 4, "");
 
@@ -171,9 +185,9 @@ sub type {
 
 sub data { $_[0]->{data} }
 
+use vars qw( $AUTOLOAD );
 sub AUTOLOAD {
     my $pack = shift;
-    use vars qw/$AUTOLOAD/;
     (my $meth = $AUTOLOAD) =~ s/.*://;
     return if $meth eq "DESTROY";
 
@@ -252,8 +266,22 @@ automatically, as well.
 
 =head2 Net::SSH::Perl::Packet->read($ssh)
 
-Reads a packet from the ssh daemon, blocking if necessary,
-and returns that packet.
+Reads a packet from the ssh daemon and returns that packet.
+
+This method will block until an entire packet has been read.
+The socket itself is non-blocking, but the method waits (using
+I<select>) for data on the incoming socket, then processes
+that data when it comes in. If the data makes up a complete
+packet, the packet is returned to the caller. Otherwise I<read>
+continues to try to read more data.
+
+=head2 Net::SSH::Perl::Packet->read_poll($ssh)
+
+Checks the data that's been read from the sshd to see if that
+data comprises a complete packet. If so, that packet is
+returned. If not, returns C<undef>.
+
+This method does not block.
 
 =head2 Net::SSH::Perl::Packet->read_expect($ssh, $type)
 

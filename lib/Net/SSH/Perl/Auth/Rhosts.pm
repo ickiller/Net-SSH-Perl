@@ -1,17 +1,17 @@
-# $Id: Rhosts.pm,v 1.7 2001/02/24 01:39:13 btrott Exp $
+# $Id: Rhosts.pm,v 1.8 2001/03/05 22:54:25 btrott Exp $
 
 package Net::SSH::Perl::Auth::Rhosts;
 
 use strict;
 
-use Net::SSH::Perl::Constants qw/
+use Net::SSH::Perl::Constants qw(
     SSH_SMSG_FAILURE
     SSH_SMSG_SUCCESS
-    SSH_CMSG_AUTH_RHOSTS/;
+    SSH_CMSG_AUTH_RHOSTS );
 
 use Net::SSH::Perl::Packet;
 use Net::SSH::Perl::Auth;
-use base qw/Net::SSH::Perl::Auth/;
+use base qw( Net::SSH::Perl::Auth );
 
 sub new {
     my $class = shift;

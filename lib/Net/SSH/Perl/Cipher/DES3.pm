@@ -1,12 +1,11 @@
-# $Id: DES3.pm,v 1.3 2001/02/22 00:03:09 btrott Exp $
+# $Id: DES3.pm,v 1.4 2001/03/05 22:54:16 btrott Exp $
 
 package Net::SSH::Perl::Cipher::DES3;
 
 use strict;
-use Carp qw/croak/;
 
 use Net::SSH::Perl::Cipher;
-use base qw/Net::SSH::Perl::Cipher/;
+use base qw( Net::SSH::Perl::Cipher );
 
 use Net::SSH::Perl::Cipher::CBC;
 use Crypt::DES;

@@ -1,4 +1,4 @@
-# $Id: CFB.pm,v 1.3 2001/02/22 00:03:09 btrott Exp $
+# $Id: CFB.pm,v 1.4 2001/03/05 22:54:16 btrott Exp $
 
 # This code based in part on the Systemics Crypt::CFB.
 # Parts Copyright (C) 1995, 1996 Systemics Ltd (http://www.systemics.com/)
@@ -6,8 +6,6 @@
 
 package Net::SSH::Perl::Cipher::CFB;
 use strict;
-
-use Carp qw/croak/;
 
 sub new {
     my($class, $ciph) = @_;

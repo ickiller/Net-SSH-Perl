@@ -1,22 +1,28 @@
-# $Id: Perl.pm,v 1.27 2001/03/03 06:48:26 btrott Exp $
+# $Id: Perl.pm,v 1.34 2001/03/07 04:18:02 btrott Exp $
 
 package Net::SSH::Perl;
 use strict;
 
 use Net::SSH::Perl::Packet;
+use Net::SSH::Perl::Buffer;
 use Net::SSH::Perl::Config;
-use Net::SSH::Perl::Constants qw/:msg :hosts PROTOCOL_MAJOR PROTOCOL_MINOR/;
+use Net::SSH::Perl::Constants qw( :msg :hosts PROTOCOL_MAJOR PROTOCOL_MINOR );
 use Net::SSH::Perl::Cipher;
 use Net::SSH::Perl::Auth;
-use Net::SSH::Perl::Util qw/:hosts _compute_session_id _rsa_public_encrypt/;
-use Carp qw/croak/;
+use Net::SSH::Perl::Util qw( :hosts _compute_session_id _rsa_public_encrypt );
 
-use vars qw/$VERSION/;
+use vars qw( $VERSION $CONFIG $HOSTNAME );
+$CONFIG = {};
+
 use Socket;
+use Fcntl;
 use Symbol;
 use Math::GMP;
+use Carp qw( croak );
+use Sys::Hostname;
+$HOSTNAME = hostname();
 
-$VERSION = "0.60";
+$VERSION = "0.61";
 
 sub new {
     my $class = shift;
@@ -39,10 +45,10 @@ sub _init {
     my $cfg = Net::SSH::Perl::Config->new($ssh->{host}, %arg);
     $ssh->{config} = $cfg;
 
-    $ssh->debug("Reading configuration data $user_config");
-    $cfg->read_config($user_config);
-    $ssh->debug("Reading configuration data $sys_config");
-    $cfg->read_config($sys_config);
+    for my $f (($user_config, $sys_config)) {
+        $ssh->debug("Reading configuration data $f");
+        $cfg->read_config($f);
+    }
 
     if (my $real_host = $ssh->{config}->get('hostname')) {
         $ssh->{host} = $real_host;
@@ -83,8 +89,6 @@ sub _init {
 
 sub config { $_[0]->{config} }
 
-use vars qw/$CONFIG/;
-$CONFIG = {};
 sub configure {
     my $class = shift;
     $CONFIG = { @_ };
@@ -133,6 +137,9 @@ sub _connect {
 
     $ssh->{session}{sock} = $sock;
     $ssh->_exchange_identification;
+
+    fcntl($sock, F_SETFL, O_NONBLOCK)
+        or die "Can't set socket non-blocking: $!";
 
     $ssh->debug("Connection established.");
 }
@@ -197,7 +204,7 @@ sub _exchange_identification {
 
 sub debug {
     my $ssh = shift;
-    print STDERR "@_\n" if $ssh->{config}->get('debug');
+    print STDERR "$HOSTNAME: @_\n" if $ssh->{config}->get('debug');
 }
 
 sub login {
@@ -221,7 +228,7 @@ sub _login {
     my $check_bytes = $data->bytes(0, 8, "");
 
     my %keys;
-    for my $which (qw/public host/) {
+    for my $which (qw( public host )) {
         $keys{$which}{bits} = $data->get_int32;
         $keys{$which}{e}    = $data->get_mp_int;
         $keys{$which}{n}    = $data->get_mp_int;
@@ -296,6 +303,11 @@ sub _login {
             $cipher_name = 'IDEA';
             $cipher = $cid;
         }
+        elsif (($cid = Net::SSH::Perl::Cipher::id('DES3')) &&
+            Net::SSH::Perl::Cipher::supported($cid, $supported_ciphers)) {
+            $cipher_name = 'DES3';
+            $cipher = $cid;
+        }
     }
 
     unless (Net::SSH::Perl::Cipher::supported($cipher, $supported_ciphers)) {
@@ -363,12 +375,15 @@ sub compression {
 sub send_compression { $_[0]->{session}{send_compression} }
 sub receive_compression { $_[0]->{session}{receive_compression} }
 
-sub register_handler { $_[0]->{client_handlers}{$_[1]} = $_[2] }
+sub register_handler {
+    my($ssh, $type, $sub, $force) = @_;
+    if (!exists $ssh->{client_handlers}{$type} || $force) {
+        $ssh->{client_handlers}{$type} = $sub;
+    }
+}
 
-sub cmd {
+sub _setup_connection {
     my $ssh = shift;
-    my $cmd = shift;
-    my $stdin = shift;
 
     $ssh->_connect;
     $ssh->fatal_disconnect("Permission denied") unless $ssh->_login;
@@ -395,14 +410,35 @@ sub cmd {
         }
     }
 
+    if ($ssh->{config}->get('use_pty')) {
+        $ssh->debug("Requesting pty.");
+        my($packet);
+        $packet = $ssh->packet_start(SSH_CMSG_REQUEST_PTY);
+        $packet->put_str($ENV{TERM});
+        $packet->put_int32(0) for 1..4;
+        $packet->put_int8(0);
+        $packet->send;
+
+        $packet = Net::SSH::Perl::Packet->read($ssh);
+        unless ($packet->type == SSH_SMSG_SUCCESS) {
+            $ssh->debug("Warning: couldn't allocate a pseudo tty.");
+        }
+    }
+}
+
+sub cmd {
+    my $ssh = shift;
+    my $cmd = shift;
+    my $stdin = shift;
+
+    $ssh->_setup_connection;
+
     my($packet);
 
     $ssh->debug("Sending command: $cmd");
     $packet = $ssh->packet_start(SSH_CMSG_EXEC_CMD);
     $packet->put_str($cmd);
     $packet->send;
-
-    $ssh->debug("Entering interactive session.");
 
     if (defined $stdin) {
         $packet = $ssh->packet_start(SSH_CMSG_STDIN_DATA);
@@ -413,46 +449,95 @@ sub cmd {
         $packet->send;
     }
 
-    my $h = $ssh->{client_handlers};
-
     my($stdout, $stderr, $exit);
-    $h->{+SSH_SMSG_STDOUT_DATA} ||= sub { $stdout .= $_[1]->get_str };
-    $h->{+SSH_SMSG_STDERR_DATA} ||= sub { $stderr .= $_[1]->get_str };
-    $h->{+SSH_SMSG_EXITSTATUS}  ||= sub { $exit    = $_[1]->get_int32 };
+    $ssh->register_handler(SSH_SMSG_STDOUT_DATA,
+        sub { $stdout .= $_[1]->get_str });
+    $ssh->register_handler(SSH_SMSG_STDERR_DATA,
+        sub { $stderr .= $_[1]->get_str });
+    $ssh->register_handler(SSH_SMSG_EXITSTATUS,
+        sub { $exit = $_[1]->get_int32 });
 
-    while (1) {
-        my $pack = Net::SSH::Perl::Packet->read($ssh);
-        if (!defined $pack) {
-            sleep 2;
-            redo;
-        }
-
-        if (my $code = $h->{ $pack->type }) {
-            $code->($ssh, $pack);
-        }
-        else {
-            $ssh->fatal_disconnect(sprintf
-                "Didn't expect packet of type %d; buffer is %s\n",
-                $pack->type, $pack->bytes);
-        }
-
-        last if $pack->type == SSH_SMSG_EXITSTATUS;
-    }
-
-    $packet = $ssh->packet_start(SSH_CMSG_EXIT_CONFIRMATION);
-    $packet->send;
+    $ssh->_start_interactive(1);
 
     $ssh->_disconnect;
-
     ($stdout, $stderr, $exit);
 }
 
-sub in_leftover {
+sub shell {
     my $ssh = shift;
-    if (@_) {
-        $ssh->{session}{in_leftover} = shift;
+
+    $ssh->{config}->set('use_pty', 1)
+        unless defined $ssh->{config}->get('use_pty');
+    $ssh->_setup_connection;
+
+    $ssh->debug("Requesting shell.");
+    my $packet = $ssh->packet_start(SSH_CMSG_EXEC_SHELL);
+    $packet->send;
+
+    $ssh->register_handler(SSH_SMSG_STDOUT_DATA,
+        sub { syswrite STDOUT, $_[1]->get_str });
+    $ssh->register_handler(SSH_SMSG_STDERR_DATA,
+        sub { syswrite STDERR, $_[1]->get_str });
+    $ssh->register_handler(SSH_SMSG_EXITSTATUS, sub {});
+
+    $ssh->_start_interactive(0);
+
+    $ssh->_disconnect;
+}
+
+sub _start_interactive {
+    my $ssh = shift;
+    my($sent_stdin) = @_;
+
+    $ssh->debug("Entering interactive session.");
+
+    my $h = $ssh->{client_handlers};
+
+    my $s = IO::Select->new;
+    $s->add($ssh->{session}{sock});
+    $s->add(\*STDIN) unless $sent_stdin;
+
+    CLOOP:
+    while (1) {
+        my @ready = $s->can_read;
+        for my $a (@ready) {
+            if ($a == $ssh->{session}{sock}) {
+                my $buf;
+                sysread $a, $buf, 8192;
+                $ssh->incoming_data->append($buf);
+            }
+            elsif ($a == \*STDIN) {
+                my $buf;
+                sysread STDIN, $buf, 8192;
+                my $packet = $ssh->packet_start(SSH_CMSG_STDIN_DATA);
+                $packet->put_str($buf);
+                $packet->send;
+            }
+        }
+
+        while (my $packet = Net::SSH::Perl::Packet->read_poll($ssh)) {
+            if (my $code = $h->{ $packet->type }) {
+                $code->($ssh, $packet);
+            }
+            else {
+                $ssh->debug(sprintf
+                    "Warning: ignoring packet of type %d", $packet->type);
+            }
+
+            last CLOOP if $packet->type == SSH_SMSG_EXITSTATUS;
+        }
     }
-    $ssh->{session}{in_leftover};
+
+    my $packet = $ssh->packet_start(SSH_CMSG_EXIT_CONFIRMATION);
+    $packet->send;
+}
+
+sub incoming_data {
+    my $ssh = shift;
+    if (!exists $ssh->{session}{incoming_data}) {
+        $ssh->{session}{incoming_data} = Net::SSH::Perl::Buffer->new;
+    }
+    $ssh->{session}{incoming_data};
 }
 
 sub set_cipher {
@@ -606,6 +691,17 @@ this argument will not turn on encryption).
 
 The default value is 6.
 
+=item * use_pty
+
+Set this to 1 if you want to request a pseudo tty on the remote
+machine. This is really only useful if you're setting up a shell
+connection (see the I<shell> method, below); and in that case,
+unless you've explicitly declined a pty (by setting I<use_pty>
+to 0), this will be set automatically to 1. In other words,
+you probably won't need to use this, often.
+
+The default is 1 if you're starting up a shell, and 0 otherwise.
+
 =back
 
 =head2 $ssh->login([ $user [, $password ] ])
@@ -631,8 +727,8 @@ command.
 If I<$stdin> is provided, it's supplied to the remote command
 I<$cmd> on standard input.
 
-NOTE: the ssh protocol does not support (so far as I know)
-running multiple commands per connection, unless those
+NOTE: the ssh protocol does not easily support (so far as I
+know) running multiple commands per connection, unless those
 commands are chained together so that the remote shell
 can evaluate them. Because of this, a new socket connection
 is created each time you call I<cmd>, and disposed of
@@ -651,6 +747,36 @@ again.
 
 This is less than ideal, obviously. Future version of
 I<Net::SSH::Perl> may find ways around that.
+
+=head2 $ssh->shell
+
+Opens up an interactive shell on the remote machine and connects
+it to your STDIN. This is most effective when used with a
+pseudo tty; otherwise you won't get a command line prompt,
+and it won't look much like a shell. For this reason--unless
+you've specifically declined one--a pty will be requested
+from the remote machine, even if you haven't set the I<use_pty>
+argument to I<new> (described above).
+
+This is really only useful in an interactive program.
+
+In addition, you'll probably want to set your terminal to raw
+input before calling this method. This lets I<Net::SSH::Perl>
+process each character and send it off to the remote machine,
+as you type it.
+
+To do so, use I<Term::ReadKey> in your program:
+
+    use Term::ReadKey;
+    ReadMode('raw');
+    $ssh->shell;
+    ReadMode('restore');
+
+In fact, you may want to place the C<restore> line in an I<END>
+block, in case your program exits prior to reaching that line.
+
+If you need an example, take a look at F<eg/pssh>, which
+uses almost this exact code to implement an ssh shell.
 
 =head2 $ssh->register_handler($packet_type, $subref)
 
@@ -730,20 +856,20 @@ If debugging is turned on for this session (see the I<debug>
 parameter to the I<new> method, above), writes I<$msg> to
 C<STDERR>. Otherwise nothing is done.
 
-=head2 $ssh->in_leftover([ $leftover ])
+=head2 $ssh->incoming_data
 
-"Input leftover"; you can use this to store the data left over
-from the last socket read, the data that wasn't read into a
-packet on the client side. This is needed because we read as
-much data as we can (up to 8192) from the remote socket; not all
-of the data we read comprises one single packet, however. Your
-client code, though, will most likely have asked for one
-single packet; so we need some way to store the leftover data
-between reads.
+Incoming data buffer, an object of type I<Net::SSH::Perl::Buffer>.
+Returns the buffer object.
 
-If passed I<$leftover>, sets the internal leftover buffer.
+The idea behind this is that we our socket is non-blocking, so we
+buffer input and periodically check back to see if we've read a
+full packet. If we have a full packet, we rip it out of the incoming
+data buffer and process it, returning it to the caller who
+presumably asked for it.
 
-Returns the contents of the leftover buffer.
+This data "belongs" to the underlying packet layer in
+I<Net::SSH::Perl::Packet>. Unless you really know what you're
+doing you probably don't want to disturb that data.
 
 =head2 $ssh->set_cipher($cipher_name)
 

@@ -1,25 +1,25 @@
-# $Id: Util.pm,v 1.8 2001/02/28 23:26:04 btrott Exp $
+# $Id: Util.pm,v 1.10 2001/03/07 20:18:18 btrott Exp $
 
 package Net::SSH::Perl::Util;
 use strict;
 
 use Net::SSH::Perl::Packet;
 use Net::SSH::Perl::Buffer;
-use Net::SSH::Perl::Constants qw/:hosts PRIVATE_KEY_ID_STRING
-    SSH_CMSG_AUTH_RSA_RESPONSE/;
+use Net::SSH::Perl::Constants qw( :hosts PRIVATE_KEY_ID_STRING
+    SSH_CMSG_AUTH_RSA_RESPONSE );
 use Net::SSH::Perl::Cipher;
-use Carp qw/croak/;
+use Carp qw( croak );
 
-use vars qw/$VERSION/;
-use Digest::MD5 qw/md5/;
+use vars qw( $VERSION );
+use Digest::MD5 qw( md5 );
 use Math::GMP;
 use String::CRC32;
 
-use vars qw/@EXPORT_OK %EXPORT_TAGS/;
+use vars qw( @EXPORT_OK %EXPORT_TAGS );
 use Exporter;
-use base qw/Exporter/;
+use base qw( Exporter );
 
-@EXPORT_OK = qw/
+@EXPORT_OK = qw(
     _crc32
     _compute_session_id
     _mp_linearize
@@ -31,16 +31,15 @@ use base qw/Exporter/;
     _rsa_public_encrypt
     _rsa_private_decrypt
     _read_passphrase
-/;
+);
 %EXPORT_TAGS = (
-    hosts => [ qw/_check_host_in_hostfile _add_host_to_hostfile/ ],
-    rsa   => [ qw/_rsa_public_encrypt _rsa_private_decrypt _respond_to_rsa_challenge/ ],
-    mp    => [ qw/_compute_session_id _mp_linearize/ ],
+    hosts => [ qw( _check_host_in_hostfile _add_host_to_hostfile ) ],
+    rsa   => [ qw( _rsa_public_encrypt _rsa_private_decrypt _respond_to_rsa_challenge ) ],
+    mp    => [ qw( _compute_session_id _mp_linearize ) ],
     all   => [ @EXPORT_OK ],
 );
 
 ## crc32 checksum.
-
 sub _crc32 {
     crc32($_[0], 0xFFFFFFFF) ^ 0xFFFFFFFF;
 }
@@ -74,7 +73,8 @@ sub _mp_linearize {
 sub _check_host_in_hostfile {
     my($host, $host_file, $key) = @_;
     local *FH;
-    open FH, $host_file or return HOST_CHANGED; # XXX: different return?
+    open FH, $host_file or return HOST_NEW; # ssh returns HOST_NEW if
+                                            # the host file can't be opened
     local($_, $/);
     $/ = "\n";
     my($status, $match, $hosts) = (HOST_NEW);

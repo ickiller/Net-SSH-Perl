@@ -1,11 +1,11 @@
-# $Id: Auth.pm,v 1.4 2001/02/22 01:26:47 btrott Exp $
+# $Id: Auth.pm,v 1.5 2001/03/05 22:55:01 btrott Exp $
 
 package Net::SSH::Perl::Auth;
 
 use strict;
-use Carp qw/croak/;
+use Carp qw( croak );
 
-use vars qw/%AUTH %AUTH_REVERSE @AUTH_ORDER %SUPPORTED/;
+use vars qw( %AUTH %AUTH_REVERSE @AUTH_ORDER %SUPPORTED );
 BEGIN {
     %AUTH = (
         Rhosts       => 1,
@@ -24,7 +24,7 @@ BEGIN {
         $SUPPORTED{$AUTH{$auth}}++ unless $@;
     }
 
-    @AUTH_ORDER = qw/7 6 1 4 2 5 3/;
+    @AUTH_ORDER = qw( 7 6 1 4 2 5 3 );
 }
 
 sub new {

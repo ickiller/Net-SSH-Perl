@@ -1,20 +1,20 @@
-# $Id: RSA.pm,v 1.8 2001/02/24 01:39:13 btrott Exp $
+# $Id: RSA.pm,v 1.9 2001/03/05 22:54:25 btrott Exp $
 
 package Net::SSH::Perl::Auth::RSA;
 
 use strict;
 
-use Net::SSH::Perl::Constants qw/
+use Net::SSH::Perl::Constants qw(
     SSH_SMSG_FAILURE
     SSH_SMSG_SUCCESS
     SSH_CMSG_AUTH_RSA
     SSH_SMSG_AUTH_RSA_CHALLENGE
-    SSH_CMSG_AUTH_RSA_RESPONSE/;
+    SSH_CMSG_AUTH_RSA_RESPONSE );
 
-use Net::SSH::Perl::Util qw/:rsa _load_public_key _load_private_key _read_passphrase/;
+use Net::SSH::Perl::Util qw( :rsa _load_public_key _load_private_key _read_passphrase );
 use Net::SSH::Perl::Packet;
 use Net::SSH::Perl::Auth;
-use base qw/Net::SSH::Perl::Auth/;
+use base qw( Net::SSH::Perl::Auth );
 
 sub new {
     my $class = shift;

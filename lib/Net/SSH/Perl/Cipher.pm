@@ -1,12 +1,12 @@
-# $Id: Cipher.pm,v 1.3 2001/02/22 00:04:09 btrott Exp $
+# $Id: Cipher.pm,v 1.4 2001/03/05 22:55:01 btrott Exp $
 
 package Net::SSH::Perl::Cipher;
 
 use strict;
-use Carp qw/croak/;
-use Digest::MD5 qw/md5/;
+use Carp qw( croak );
+use Digest::MD5 qw( md5 );
 
-use vars qw/%CIPHERS %CIPH_REVERSE %SUPPORTED/;
+use vars qw( %CIPHERS %CIPH_REVERSE %SUPPORTED );
 BEGIN {
     %CIPHERS = (
         None => 0,

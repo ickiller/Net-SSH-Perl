@@ -1,6 +1,21 @@
-$Id: Changes,v 1.9 2001/03/03 06:42:12 btrott Exp $
+$Id: Changes,v 1.14 2001/03/08 07:48:37 btrott Exp $
 
 Revision history for Net::SSH::Perl
+
+0.61  2001.03.07
+    - changed in_leftover implementation and name. The method
+      is now named incoming_data, and the implementation is
+      a Net::SSH::Perl::Buffer object.
+    - changed to using non-blocking sockets. Net::SSH::Perl::Packet
+      added a read_poll method, which doesn't block; read still
+      blocks (using select).
+    - added shell connection functionality, and abstracted out
+      interactive session code a bit better. Added pty support.
+      In the future 'shell' could conceivably be used to execute
+      multiple commands over the same ssh connection.
+    - added 3DES as fallback cipher if IDEA isn't supported.
+    - _check_host_in_hostfile now returns HOST_NEW if the hostfile
+      can't be opened, consistent with how ssh and openssh work.
 
 0.60  2001.03.02
     - added compression support, along with Compression and

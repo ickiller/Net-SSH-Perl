@@ -1,16 +1,15 @@
-# $Id: Blowfish.pm,v 1.7 2001/02/22 00:03:09 btrott Exp $
+# $Id: Blowfish.pm,v 1.8 2001/03/05 22:54:16 btrott Exp $
 
 package Net::SSH::Perl::Cipher::Blowfish;
 
 use strict;
-use Carp qw/croak/;
 
 use Net::SSH::Perl::Cipher;
-use base qw/Net::SSH::Perl::Cipher/;
+use base qw( Net::SSH::Perl::Cipher );
 
 use Net::SSH::Perl::Cipher::CBC;
 
-use vars qw/$BF_CLASS/;
+use vars qw( $BF_CLASS );
 BEGIN {
     my @err;
     for my $mod (qw( Crypt::Blowfish Crypt::Blowfish_PP )) {

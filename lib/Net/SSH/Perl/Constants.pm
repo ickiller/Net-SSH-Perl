@@ -1,4 +1,4 @@
-# $Id: Constants.pm,v 1.4 2001/03/03 05:31:43 btrott Exp $
+# $Id: Constants.pm,v 1.6 2001/03/06 00:33:59 btrott Exp $
 
 package Net::SSH::Perl::Constants;
 use strict;
@@ -16,6 +16,7 @@ use constant SSH_CMSG_AUTH_RSA => 6;
 use constant SSH_SMSG_AUTH_RSA_CHALLENGE => 7;
 use constant SSH_CMSG_AUTH_RSA_RESPONSE => 8;
 use constant SSH_CMSG_AUTH_PASSWORD => 9;
+use constant SSH_CMSG_REQUEST_PTY => 10;
 use constant SSH_CMSG_EXEC_SHELL => 12;
 use constant SSH_CMSG_EXEC_CMD => 13;
 use constant SSH_SMSG_SUCCESS => 14;
@@ -39,9 +40,9 @@ use constant PRIVATE_KEY_ID_STRING => "SSH PRIVATE KEY FILE FORMAT 1.1\n";
 
 use constant MAX_PACKET_SIZE => 256000;
 
-use vars qw/@EXPORT_OK %EXPORT_TAGS/;
+use vars qw( @EXPORT_OK %EXPORT_TAGS );
 use Exporter;
-use base qw/Exporter/;
+use base qw( Exporter );
 
 BEGIN {
     my %EXPORT_RULES = (
