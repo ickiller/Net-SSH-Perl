@@ -1,4 +1,4 @@
-# $Id: Channel.pm,v 1.11 2001/06/06 05:07:37 btrott Exp $
+# $Id: Channel.pm,v 1.12 2001/06/07 21:21:52 btrott Exp $
 
 package Net::SSH::Perl::Channel;
 use strict;
@@ -28,8 +28,12 @@ sub init {
     $c->{istate} = CHAN_INPUT_OPEN;
     $c->{flags} = 0;
     $c->{remote_window} = 0;
+    $c->{local_window} ||= 32 * 1024;
     $c->{local_window_max} = $c->{local_window};
     $c->{local_consumed} = 0;
+    $c->{local_maxpacket} ||= 16 * 1024;
+    $c->{ctype} ||= 'session';
+    $c->{remote_name} ||= 'client-session';
 }
 
 sub open {

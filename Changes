@@ -1,6 +1,13 @@
-$Id: Changes,v 1.61 2001/06/07 04:35:30 btrott Exp $
+$Id: Changes,v 1.63 2001/06/26 23:47:38 btrott Exp $
 
 Revision history for Net::SSH::Perl
+
+1.17  2001.06.26
+    - Added (experimental) open2 method, which returns 2 tied
+      filehandles for reading and writing to the sshd server (or
+      rather to the command executed on the remote server). Thanks
+      to Mark Ethan Trostler for the idea, suggestions on functionality,
+      code patches, and testing.
 
 1.16  2001.06.06
     - Fixed bug in Net::SSH::Perl::Packet that caused client to
@@ -9,6 +16,7 @@ Revision history for Net::SSH::Perl
       'extra' arguments (other than packet type and code ref) and
       will pass those arguments on to your callback function. This
       allows callbacks access to otherwise private variable states.
+      Thanks to Mark Ethan Trostler for the idea and a patch.
     - Didn't need @EXPORT_OK in Net::SSH::Perl::Util, so took it
       out.
 
@@ -104,14 +112,13 @@ Revision history for Net::SSH::Perl
       be "Corrupted check bytes on input" after sending the
       RSA-encrypted session key, and turning on encryption.
       This was due to an incorrect key length when setting the
-      Blowfish key. Thanks to Dan Berger (djberge@uswest.com) for
-      the spot.
+      Blowfish key. Thanks to Dan Berger for the spot.
 
 1.05  2001.05.04
     - Fixed bug when entering password at prompt; entering an
       incorrect password more than three times would cause the
-      authentication to hang. Thanks to Matt Good (mgood@nextdoor.com)
-      for the spot and a fix.
+      authentication to hang. Thanks to Matt Good for the spot and
+      a fix.
 
 1.04  2001.05.04
     - Fixed bug in version/protocol exchange that was causing a DSA
@@ -119,7 +126,7 @@ Revision history for Net::SSH::Perl
       and some versions of ssh2 were sending ctrl-M characters as
       well that should be cut off. This caused errors like "DSA
       verification failed for server host key" during key exchange.
-      Thanks to Matt Good (mgood@nextdoor.com) for the spot.
+      Thanks to Matt Good for the spot.
     - Fixed host wildcard matching in Net::SSH::Perl::Config so that
       the directive 'Host foo' no longer matches the host 'foobar';
       this was incorrect behavior and inconsistent with ssh.
@@ -171,26 +178,24 @@ Revision history for Net::SSH::Perl
     - fixed bug with sending large STDIN packets. The symptom was
       that, when trying to send STDIN packets larger than MAX_PACKET_SIZE,
       you'd get an error and the packet wouldn't be sent. Thanks to
-      Chris Beatson (chris@neonova.net) for the spot and a patch.
+      Chris Beatson for the spot and a patch.
     - fixed odd bug with _mp_linearize. Aaron Paetznick
-      (aaronp@critd.com) pointed this out, and I could only
-      reproduce it on his system. The symptoms were that encryption
-      would not work, resulting in "Corrupted check bytes on input"
-      messages after encryption was turned on. This was due to a
-      problem generating the session ID. Fixed by using a whole new
-      version of _mp_linearize.
+      pointed this out, and I could only reproduce it on his system.
+      The symptoms were that encryption would not work, resulting in
+      "Corrupted check bytes on input" messages after encryption was
+      turned on. This was due to a problem generating the session ID.
+      Fixed by using a whole new version of _mp_linearize.
 
 0.66  2001.03.22
     - fixed bug where calling 'cmd' more than once wouldn't get
       anything in returned stdout, stderr, or exit status. Thanks
-      to John Tyrrell (tyrrell@verio.net) for the spot.
+      to John Tyrrell for the spot.
 
 0.65  2001.03.21
     - fixed bug with "Cipher <name>" in config file or 'options'
       param. This wasn't mapping ssh cipher names to Net::SSH::Perl
       cipher names (ie. should map 'idea' => 'IDEA'). Thanks to
-      Edward Vopata (vopata@pulsar.itg.ti.com) for the spot and
-      a patch.
+      Edward Vopata for the spot and a patch.
     - made it clearer that Net::SSH::Perl currently supports only
       SSH1 protocol.
     - better error checking for getservbyname lookup of ssh

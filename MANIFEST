@@ -33,6 +33,8 @@ lib/Net/SSH/Perl/Comp.pm
 lib/Net/SSH/Perl/Comp/Zlib.pm
 lib/Net/SSH/Perl/Config.pm
 lib/Net/SSH/Perl/Constants.pm
+lib/Net/SSH/Perl/Handle/SSH1.pm
+lib/Net/SSH/Perl/Handle/SSH2.pm
 lib/Net/SSH/Perl/Kex.pm
 lib/Net/SSH/Perl/Kex/DH1.pm
 lib/Net/SSH/Perl/Key.pm

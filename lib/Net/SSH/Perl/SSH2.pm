@@ -1,4 +1,4 @@
-# $Id: SSH2.pm,v 1.28 2001/06/06 05:07:37 btrott Exp $
+# $Id: SSH2.pm,v 1.30 2001/06/20 22:46:20 btrott Exp $
 
 package Net::SSH::Perl::SSH2;
 use strict;
@@ -197,6 +197,61 @@ sub shell {
     $ssh->client_loop;
 }
 
+sub open2 {
+    my $ssh = shift;
+    my($cmd) = @_;
+
+    require Net::SSH::Perl::Handle::SSH2;
+
+    my $cmgr = $ssh->channel_mgr;
+    my $channel = $ssh->_session_channel;
+    $channel->open;
+
+    $channel->register_handler(SSH2_MSG_CHANNEL_OPEN_CONFIRMATION, sub {
+        my($channel, $packet) = @_;
+        $channel->{ssh}->debug("Sending command: $cmd");
+        my $r_packet = $channel->request_start("exec", 1);
+        $r_packet->put_str($cmd);
+        $r_packet->send;
+    });
+
+    my $exit;
+    $channel->register_handler(SSH2_MSG_CHANNEL_REQUEST, sub {
+	my($channel, $packet) = @_;
+	my $rtype = $packet->get_str;
+	my $reply = $packet->get_int8;
+	$channel->{ssh}->debug("input_channel_request: rtype $rtype reply $reply");
+	if ($rtype eq "exit-status") {
+	    $exit = $packet->get_int32;
+	}
+	if ($reply) {
+	    my $r_packet = $channel->{ssh}->packet_start(SSH2_MSG_CHANNEL_SUCCESS);
+	    $r_packet->put_int($channel->{remote_id});
+	    $r_packet->send;
+	}
+    });
+
+    my $reply = sub {
+        my($channel, $packet) = @_;
+        if ($packet->type == SSH2_MSG_CHANNEL_FAILURE) {
+            $channel->{ssh}->fatal_disconnect("Request for " .
+                "exec failed on channel '" . $packet->get_int32 . "'");
+        }
+        $channel->{ssh}->break_client_loop;
+    };
+
+    $cmgr->register_handler(SSH2_MSG_CHANNEL_FAILURE, $reply);
+    $cmgr->register_handler(SSH2_MSG_CHANNEL_SUCCESS, $reply);
+
+    $ssh->client_loop;
+
+    local(*READ, *WRITE);
+    tie *READ, 'Net::SSH::Perl::Handle::SSH2', 'r', $channel, \$exit;
+    tie *WRITE, 'Net::SSH::Perl::Handle::SSH2', 'w', $channel, \$exit;
+
+    (\*READ, \*WRITE);
+}
+
 sub break_client_loop { $_[0]->{_cl_quit_pending} = 1 }
 sub _quit_pending { $_[0]->{_cl_quit_pending} }
 
@@ -242,18 +297,6 @@ sub client_loop {
         }
     }
 }
-
-## client sends CHANNEL_OPEN
-## client sets up dispatch handlers, enters loop
-## client receives CHANNEL_OPEN_CONFIRMATION
-## client sends CHANNEL_REQUEST, requesting either cmd or shell
-## if cmd:
-##     client receives CHANNEL_DATA
-##     dispatcher handles incoming input packets (client_process_buffered_input_packets)
-##     channel mgr shoves incoming data into 'output' buffer (channel_input_data)
-##     after select, loop through channels and process buffers (channel_after_select)
-##     channel_post_open_2 handles all three file descriptors (channel_post_open_2)
-##     client reads data from 'output' buffer and writes to wfd (channel_handle_wfd)
 
 sub channel_mgr {
     my $ssh = shift;

@@ -1,4 +1,4 @@
-# $Id: SSH1.pm,v 1.13 2001/06/06 05:07:37 btrott Exp $
+# $Id: SSH1.pm,v 1.14 2001/06/20 22:46:41 btrott Exp $
 
 package Net::SSH::Perl::SSH1;
 use strict;
@@ -264,6 +264,7 @@ sub cmd {
             sub { $ssh->{_cmd_exit} = $_[1]->get_int32 });
     }
 
+    $ssh->debug("Entering interactive session.");
     $ssh->_start_interactive(1);
     my($stdout, $stderr, $exit) =
         map $ssh->{"_cmd_$_"}, qw( stdout stderr exit );
@@ -289,23 +290,52 @@ sub shell {
         sub { syswrite STDERR, $_[1]->get_str });
     $ssh->register_handler(SSH_SMSG_EXITSTATUS, sub {});
 
+    $ssh->debug("Entering interactive session.");
     $ssh->_start_interactive(0);
 
     $ssh->_disconnect;
 }
 
+sub open2 {
+    my $ssh = shift;
+    my($cmd) = @_;
+
+    require Net::SSH::Perl::Handle::SSH1;
+
+    $ssh->_setup_connection;
+    my($packet);
+
+    $ssh->debug("Sending command: $cmd");
+    $packet = $ssh->packet_start(SSH_CMSG_EXEC_CMD);
+    $packet->put_str($cmd);
+    $packet->send;
+
+    my($exit);
+    $ssh->register_handler(SSH_SMSG_EXITSTATUS,
+        sub { $exit = $_[1]->get_int32 });
+
+    local(*READ, *WRITE);
+    tie *READ, 'Net::SSH::Perl::Handle::SSH1', 'r', $ssh, \$exit;
+    tie *WRITE, 'Net::SSH::Perl::Handle::SSH1', 'w', $ssh, \$exit;
+
+    $ssh->debug("Entering interactive session.");
+    (\*READ, \*WRITE);
+}
+
+sub break_client_loop { $_[0]->{_cl_quit_pending} = 1 }
+sub _quit_pending { $_[0]->{_cl_quit_pending} }
+
 sub _start_interactive {
     my $ssh = shift;
     my($sent_stdin) = @_;
-
-    $ssh->debug("Entering interactive session.");
 
     my $s = IO::Select->new;
     $s->add($ssh->{session}{sock});
     $s->add(\*STDIN) unless $sent_stdin;
 
     CLOOP:
-    while (1) {
+    $ssh->{_cl_quit_pending} = 0;
+    while (!$ssh->_quit_pending) {
         my @ready = $s->can_read;
         for my $a (@ready) {
             if ($a == $ssh->{session}{sock}) {
@@ -333,12 +363,16 @@ sub _start_interactive {
                     "Warning: ignoring packet of type %d", $packet->type);
             }
 
-            last CLOOP if $packet->type == SSH_SMSG_EXITSTATUS;
+            if ($packet->type == SSH_SMSG_EXITSTATUS) {
+                my $packet = $ssh->packet_start(SSH_CMSG_EXIT_CONFIRMATION);
+                $packet->send;
+                $ssh->break_client_loop
+            }
         }
+
+        last if $ssh->_quit_pending;
     }
 
-    my $packet = $ssh->packet_start(SSH_CMSG_EXIT_CONFIRMATION);
-    $packet->send;
 }
 
 sub set_cipher {
