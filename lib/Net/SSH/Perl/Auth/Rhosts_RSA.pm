@@ -37,7 +37,7 @@ sub authenticate {
         return 0 if $@;
 
     my $user = $ssh->{user};
-    $packet = Net::SSH::Perl::Packet->new($ssh, type => SSH_CMSG_AUTH_RHOSTS_RSA);
+    $packet = $ssh->packet_start(SSH_CMSG_AUTH_RHOSTS_RSA);
     $packet->put_str($user);
     $packet->put_32bit($private_key->{bits});
     $packet->put_mp_int($private_key->{e});

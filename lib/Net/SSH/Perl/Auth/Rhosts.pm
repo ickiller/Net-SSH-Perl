@@ -25,7 +25,7 @@ sub authenticate {
 
     $ssh->debug("Trying rhosts authentication.");
 
-    $packet = Net::SSH::Perl::Packet->new($ssh, type => SSH_CMSG_AUTH_RHOSTS);
+    $packet = $ssh->packet_start(SSH_CMSG_AUTH_RHOSTS);
     $packet->put_str($ssh->{user});
     $packet->send;
 

@@ -11,6 +11,7 @@ my @cryptmod = (
     [ 'IDEA', 'Crypt::IDEA' ],
     [ 'DES', 'Crypt::DES' ],
     [ 'DES3', 'Crypt::DES' ],
+    [ 'Blowfish', 'Crypt::Blowfish' ],
 );
 
 print<<MSG;
@@ -40,7 +41,7 @@ while (my($k, $v) = each %prereq) {
 }
 
 if (%todo) {
-    unless (CPAN::Shell->can('install')) {
+    #unless (CPAN::Shell->can('install')) {
         print <<MSG;
 Net::SSH::Perl depends on several external modules for
 functionality. These modules can be installed
@@ -52,7 +53,7 @@ questions. Note, however, that you'll still need to
 install these modules manually to use Net::SSH::Perl.
 
 MSG
-    }
+    #}
 
     require Cwd;
     my $cwd = Cwd::cwd();

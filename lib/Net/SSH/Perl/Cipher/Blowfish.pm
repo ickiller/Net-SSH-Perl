@@ -12,7 +12,7 @@ use Crypt::Blowfish;
 sub new {
     my $class = shift;
     my $key = shift;
-    my $blow = Crypt::Blowfish->new(substr $key, 0, 16);
+    my $blow = Crypt::Blowfish->new(substr $key, 0, 32);
     my $cbc = Net::SSH::Perl::Cipher::CBC->new($blow);
     bless { cbc => $cbc }, $class;
 }
@@ -28,20 +28,9 @@ sub decrypt {
 }
 
 sub _swap_bytes {
-    my @str = split //, $_[0];
-    my $n = @str;
-    my($i) = (0);
-    my $dst;
-    for ($n=$n/4; $n>0; $n--) {
-        my @c;
-        $c[3] = $str[$i++];
-        $c[2] = $str[$i++];
-        $c[1] = $str[$i++];
-        $c[0] = $str[$i++];
-        $dst .= join '', @c[0..3];
-    }
-    $dst;
+    my $str = $_[0];
+    $str =~ s/(.{4})/reverse $1/sge;
+    $str;
 }
 
-## Return 0 (unsupported) until we can get it working.
-0;
+1;

@@ -36,7 +36,7 @@ sub authenticate {
 
     $ssh->debug("Trying RSA authentication with key '$comment'");
 
-    $packet = Net::SSH::Perl::Packet->new($ssh, type => SSH_CMSG_AUTH_RSA);
+    $packet = $ssh->packet_start(SSH_CMSG_AUTH_RSA);
     $packet->put_mp_int($public_key->{n});
     $packet->send;
 
@@ -71,8 +71,7 @@ sub authenticate {
         };
         if (!$private_key || $@) {
             $ssh->debug("Loading private key failed: $@.");
-            $packet = Net::SSH::Perl::Packet->new($ssh,
-                type => SSH_CMSG_AUTH_RSA_RESPONSE);
+            $packet = $ssh->packet_start(SSH_CMSG_AUTH_RSA_RESPONSE);
             $packet->put_char(0) for (1..16);
             $packet->send;
 

@@ -1,21 +1,9 @@
-This is Net::SSH::Perl 0.50.
+This is Net::SSH::Perl 0.51.
 
 PROGRESS
 
-Features added in version 0.50:
-    * moved my Net::SSH libraries into the Net::SSH::Perl
-      namespace.
-    * added ssh and issh wrappers around OO methods.
-    * added configure method to Net::SSH::Perl in preparation
-      for the new Net::SSH interface.
-    * added RSA authentication.
-    * ripped out IO::Socket usage, replaced with manual
-      socket creation and connection so we can try to bind to
-      ports 1023 down through 512, if the user wants to
-      connect on a privileged port.
-    * added Rhosts-RSA and Rhosts authentication, with the
-      caveat that they only work when running as root
-      and on a privileged port.
+Features added in version 0.51:
+    * Blowfish support has now been added.
 
 PREREQUISITES
 
@@ -25,9 +13,8 @@ PREREQUISITES
 
 ENCRYPTION CIPHERS
 
-Net::SSH::Perl currently supports 3 encryption ciphers: IDEA, DES,
-and 3DES. Blowfish is also part of the distribution, but it
-doesn't actually work yet. :)
+Net::SSH::Perl currently supports 4 encryption ciphers: IDEA, DES,
+3DES, and Blowfish.
 
 In order to use the ciphers you'll need to install the
 corresponding Crypt:: module. I've not listed any of these
@@ -61,14 +48,6 @@ Net::SSH::Perl itself installs like a Perl module should:
 
     % perl Makefile.PL
     % make && make test && make install
-
-BUGS
-
-The following bugs/problems still exist:
-    * Blowfish support is included but it doesn't work, yet.
-      This seems to be a problem with incompatibilities
-      between the blowfish in ssh and Crypt::Blowfish,
-      but I can't be sure.
 
 SUPPORT
 

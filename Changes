@@ -1,6 +1,9 @@
 Revision history for Perl extension Net::SSH::Perl.
 
-0.04  Mon Feb 5 13:52:02 2001
+0.51  Tue Feb 20 20:43:15 2001
+	- Blowfish support has now been added.
+
+0.50  Mon Feb 5 13:52:02 2001
         - moved my Net::SSH libraries into the Net::SSH::Perl
           namespace; hooked up the main Net::SSH interface lib.
         - added ssh and issh wrappers around OO methods.

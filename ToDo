@@ -1,7 +1,3 @@
-Make Blowfish support work. Crypt::Blowfish encryption seems to be
-incompatible with the blowfish in ssh. Tried swapping bytes as per
-the openssh source, but that didn't fix it, either.
-
 Is there any way to use Rhosts-RSA auth without running as root?
 
 Add option for setting RSA identity files.

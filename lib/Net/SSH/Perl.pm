@@ -13,7 +13,7 @@ use Socket;
 use Symbol;
 use Math::GMP;
 
-$VERSION = "0.50";
+$VERSION = "0.51";
 
 sub new {
     my $class = shift;
@@ -70,7 +70,29 @@ sub issh {
 
 sub _connect {
     my $ssh = shift;
+    my $sock = $ssh->_create_socket;
 
+    my $raddr = inet_aton($ssh->{host});
+    croak "Net::SSH: Couldn't resolve $ssh->{host} to numerical address"
+        unless defined $raddr;
+    my $rport = $ssh->{port} || 'ssh';
+    if ($rport =~ /\D/) {
+        my @serv = getservbyname($rport, 'tcp');
+        $rport = $serv[2];
+    }
+    $ssh->debug("Connecting to $ssh->{host}, port $rport.");
+    connect($sock, sockaddr_in($rport, $raddr));
+
+    select((select($sock), $|=1)[0]);
+
+    $ssh->{session}{sock} = $sock;
+    $ssh->_exchange_identification;
+
+    $ssh->debug("Connection established.");
+}
+
+sub _create_socket {
+    my $ssh = shift;
     my $sock = gensym;
     if ($ssh->{privileged}) {
         my $p;
@@ -92,29 +114,12 @@ sub _connect {
         socket($sock, AF_INET, SOCK_STREAM, 0) ||
             croak "Net::SSH: Can't create socket: $!";
     }
-
-    my $raddr = inet_aton($ssh->{host});
-    croak "Net::SSH: Couldn't resolve $ssh->{host} to numerical address"
-        unless defined $raddr;
-    my $rport = $ssh->{port} || 'ssh';
-    if ($rport =~ /\D/) {
-        my @serv = getservbyname($rport, 'tcp');
-        $rport = $serv[2];
-    }
-    $ssh->debug("Connecting to $ssh->{host}, port $rport.");
-    connect($sock, sockaddr_in($rport, $raddr));
-
-    select((select($sock), $|=1)[0]);
-
-    $ssh->{session}{sock} = $sock;
-    $ssh->_exchange_identification;
-
-    $ssh->debug("Connection established.");
+    $sock;
 }
 
 sub _disconnect {
     my $ssh = shift;
-    my $packet = Net::SSH::Perl::Packet->new($ssh, type => SSH_MSG_DISCONNECT);
+    my $packet = $ssh->packet_start(SSH_MSG_DISCONNECT);
     $packet->send;
     $ssh->{session} = {};
 }
@@ -244,7 +249,7 @@ sub _login {
     }
     $ssh->debug(sprintf "Encryption type: %s", $cipher_name);
 
-    $packet = Net::SSH::Perl::Packet->new($ssh, type => SSH_CMSG_SESSION_KEY);
+    $packet = $ssh->packet_start(SSH_CMSG_SESSION_KEY);
     $packet->put_char(pack "c", $cipher);
     $packet->put_char($_) for split //, $check_bytes;
     $packet->put_mp_int($skey);
@@ -258,7 +263,7 @@ sub _login {
     Net::SSH::Perl::Packet->read_expect($ssh, SSH_SMSG_SUCCESS);
     $ssh->debug("Received encryption confirmation.");
 
-    $packet = Net::SSH::Perl::Packet->new($ssh, type => SSH_CMSG_USER);
+    $packet = $ssh->packet_start(SSH_CMSG_USER);
     $packet->put_str($user);
     $packet->send;
 
@@ -285,29 +290,32 @@ sub cmd {
     my $stdin = shift;
 
     $ssh->_connect;
-    unless ($ssh->_login) {
-        croak "Permission denied";
-    }
+    croak "Permission denied" unless $ssh->_login;
 
     my($packet);
 
     $ssh->debug("Sending command: $cmd");
-    $packet = Net::SSH::Perl::Packet->new($ssh, type => SSH_CMSG_EXEC_CMD);
+    $packet = $ssh->packet_start(SSH_CMSG_EXEC_CMD);
     $packet->put_str($cmd);
     $packet->send;
 
     $ssh->debug("Entering interactive session.");
 
     if (defined $stdin) {
-        $packet = Net::SSH::Perl::Packet->new($ssh, type => SSH_CMSG_STDIN_DATA);
+        $packet = $ssh->packet_start(SSH_CMSG_STDIN_DATA);
         $packet->put_str($stdin);
         $packet->send;
 
-        $packet = Net::SSH::Perl::Packet->new($ssh, type => SSH_CMSG_EOF);
+        $packet = $ssh->packet_start(SSH_CMSG_EOF);
         $packet->send;
     }
 
     my($stdout, $stderr, $exit);
+    my $h = {};
+    $h->{+SSH_SMSG_STDOUT_DATA} ||= sub { $stdout .= $_[1]->get_str };
+    $h->{+SSH_SMSG_STDERR_DATA} ||= sub { $stderr .= $_[1]->get_str };
+    $h->{+SSH_SMSG_EXITSTATUS}  ||= sub { $exit    = $_[1]->get_32bit };
+
     while (1) {
         my $pack = Net::SSH::Perl::Packet->read($ssh);
         if (!defined $pack) {
@@ -315,23 +323,18 @@ sub cmd {
             redo;
         }
 
-        if ($pack->type == SSH_SMSG_STDOUT_DATA) {
-            $stdout .= $pack->data->get_str;
-        }
-        elsif ($pack->type == SSH_SMSG_STDERR_DATA) {
-            $stderr .= $pack->data->get_str;
-        }
-        elsif ($pack->type == SSH_SMSG_EXITSTATUS) {
-            $exit = $pack->data->get_32bit;
-            last;
+        if (my $code = $h->{ $pack->type }) {
+            $code->($ssh, $pack);
         }
         else {
-            croak sprintf "Didn't expect to get packet of type %d; buffer is %s\n",
-                $pack->type, $pack->data->bytes;
+            croak sprintf "Didn't expect packet of type %d; buffer is %s\n",
+                $pack->type, $pack->bytes;
         }
+
+        last if $pack->type == SSH_SMSG_EXITSTATUS;
     }
 
-    $packet = Net::SSH::Perl::Packet->new($ssh, type => SSH_CMSG_EXIT_CONFIRMATION);
+    $packet = $ssh->packet_start(SSH_CMSG_EXIT_CONFIRMATION);
     $packet->send;
 
     $ssh->_disconnect;
@@ -358,6 +361,8 @@ sub send_cipher { $_[0]->{session}{send} }
 sub receive_cipher { $_[0]->{session}{receive} }
 sub session_key { $_[0]->{session}{key} }
 sub session_id { $_[0]->{session}{id} }
+
+sub packet_start { Net::SSH::Perl::Packet->new($_[0], type => $_[1]) }
 
 1;
 __END__
@@ -522,9 +527,8 @@ I<Net::SSH::Perl> may find ways around that.
 
 =head1 ENCRYPTION CIPHERS
 
-I<Net::SSH::Perl> currently supports 3 encryption ciphers: IDEA,
-DES, and 3DES. Blowfish is also part of the distribution, but it
-doesn't actually work yet. :)
+I<Net::SSH::Perl> currently supports 4 encryption ciphers: IDEA,
+DES, 3DES, and Blowfish.
 
 In order to use the ciphers you'll need to install the
 corresponding Crypt:: module. I've not listed any of these
@@ -533,21 +537,6 @@ process you'll be prompted to add some of these modules
 so that you can use the encryption. If you're using the CPAN
 shell, the modules should be automatically installed;
 otherwise you'll need to do so yourself.
-
-=head1 BUGS
-
-The following bugs/problems still exist:
-
-=over 4
-
-=item * Blowfish support
-
-Blowfish support is included but it doesn't work, yet.
-This seems to be a problem with incompatibilities
-between the blowfish in ssh and Crypt::Blowfish,
-but I can't be sure.
-
-=back
 
 =head1 AUTHOR
 

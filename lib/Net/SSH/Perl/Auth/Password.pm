@@ -33,7 +33,7 @@ sub authenticate {
             $ssh->debug("Will not query passphrase in batch mode.");
         }
     }
-    $packet = Net::SSH::Perl::Packet->new($ssh, type => SSH_CMSG_AUTH_PASSWORD);
+    $packet = $ssh->packet_start(SSH_CMSG_AUTH_PASSWORD);
     $packet->put_str($pass);
     $packet->send;
 

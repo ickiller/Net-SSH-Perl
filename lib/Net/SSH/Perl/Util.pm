@@ -205,7 +205,7 @@ sub _respond_to_rsa_challenge {
 
     $ssh->debug("Sending response to host key RSA challenge.");
 
-    my $packet = Net::SSH::Perl::Packet->new($ssh, type => SSH_CMSG_AUTH_RSA_RESPONSE);
+    my $packet = $ssh->packet_start(SSH_CMSG_AUTH_RSA_RESPONSE);
     for my $i (0..15) {
         $packet->put_char(substr $response, $i, 1);
     }
