@@ -1,4 +1,4 @@
-# $Id: DSA.pm,v 1.15 2001/05/03 03:40:17 btrott Exp $
+# $Id: DSA.pm,v 1.16 2001/05/03 16:51:43 btrott Exp $
 
 package Net::SSH::Perl::Key::DSA;
 use strict;
@@ -10,6 +10,7 @@ use Net::SSH::Perl::Util qw( :ssh2mp );
 use Net::SSH::Perl::Key;
 use base qw( Net::SSH::Perl::Key );
 
+use MIME::Base64;
 use Crypt::DSA;
 use Crypt::DSA::Key;
 use Carp qw( croak );

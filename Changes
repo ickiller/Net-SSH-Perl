@@ -1,6 +1,10 @@
-$Id: Changes,v 1.35 2001/05/03 08:03:57 btrott Exp $
+$Id: Changes,v 1.36 2001/05/03 16:53:54 btrott Exp $
 
 Revision history for Net::SSH::Perl
+
+1.03  2001.05.03
+    - Fixed error with Net::SSH::Perl::Key::DSA and MIME::Base64.
+    - Added better docs for Key classes.
 
 1.02  2001.05.03
     - Fixed some doc errors, both syntax and content.
