@@ -1,5 +1,5 @@
 #!/usr/bin/perl -w
-# $Id: pssh-keygen,v 1.6 2001/05/03 03:11:58 btrott Exp $
+# $Id: pssh-keygen,v 1.9 2001/05/11 00:54:00 btrott Exp $
 
 use strict;
 
@@ -10,7 +10,7 @@ use Net::SSH::Perl::Util qw( _read_passphrase );
 
 my %opts;
 Getopt::Long::Configure('no_ignore_case');
-GetOptions(\%opts, "b=i", "f=s", "l", "B", "p", "q", "t=s", "C=s", "N=s", "P=s", "x", "X", "y");
+GetOptions(\%opts, "b=i", "f=s", "l", "B", "p", "c", "q", "t=s", "C=s", "N=s", "P=s", "x", "X", "y");
 
 use vars qw( $VERBOSE $SSH_DIR );
 $VERBOSE = !$opts{q};
@@ -21,8 +21,12 @@ my %types = (
         name => 'DSA',
         keyfile => 'id_dsa',
     },
-    rsa1 => {
+    rsa => {
         name => 'RSA',
+        keyfile => 'id_rsa',
+    },
+    rsa1 => {
+        name => 'RSA1',
         keyfile => 'identity',
     },
 );
@@ -38,10 +42,11 @@ if ($opts{p} || $opts{x} || $opts{y} ||
         $keyfile = prompt("Enter file in which the key is:", $def_keyfile);
     }
 
-    my $key = Net::SSH::Perl::Key->read_private($key_type, $keyfile, $opts{P});
+    my($pass);
+    my($key, $comment) = Net::SSH::Perl::Key->read_private($key_type, $keyfile, $opts{P});
     unless ($key) {
-        my $pass = _read_passphrase("Enter old passphrase: ");
-        $key = Net::SSH::Perl::Key->read_private($key_type, $keyfile, $pass);
+        $pass = _read_passphrase("Enter old passphrase: ");
+        ($key, $comment) = Net::SSH::Perl::Key->read_private($key_type, $keyfile, $pass);
     }
     die "Bad passphrase.\n" unless $key;
 
@@ -55,6 +60,18 @@ if ($opts{p} || $opts{x} || $opts{y} ||
         }
 
         $key->write_private($keyfile, $new);
+    }
+    elsif ($opts{c}) {
+        die "Comments are only supported for RSA1 keys.\n"
+            unless $type eq 'rsa1';
+        print "Key now has comment '$comment'\n";
+        my $new = $opts{C};
+        unless ($new) {
+            $new = prompt("Enter new comment:");
+        }
+        $key->write_private($keyfile, $pass, $new);
+        write_public($keyfile, $key, $new);
+        print "The comment in your key file has been changed.\n";
     }
     elsif ($opts{l}) {
         print $key->size, " ", $key->fingerprint, "\n";
@@ -112,15 +129,23 @@ else {
     $key->write_private($keyfile, $pass);
     debug("Your identification has been saved in $keyfile.");
 
-    my $pub = "$keyfile.pub";
-    local *FH;
-    open FH, ">$pub" or die "Can't open public keyfile $pub: $!";
-    print FH $key->dump_public;
-    close FH or warn "Can't close public keyfile $pub: $!";
+    my $pub = write_public($keyfile, $key);
     debug("Your public key has been saved in $pub.");
 
     debug("The key fingerprint is:");
     debug($key->fingerprint);
+}
+
+sub write_public {
+    my($priv_keyfile, $key, $comment) = @_;
+    $comment ||= '';
+    my $pub = "$priv_keyfile.pub";
+    local *FH;
+    open FH, ">$pub" or die "Can't open public keyfile $pub: $!";
+    print FH $key->dump_public;
+    print FH " ", $comment;
+    close FH or warn "Can't close public keyfile $pub: $!";
+    $pub;
 }
 
 sub debug {
@@ -153,6 +178,9 @@ pssh-keygen B<-x> [B<-f> I<input_keyfile>]
 pssh-keygen B<-X> [B<-f> I<input_keyfile>]
 
 pssh-keygen B<-y> [B<-f> I<input_keyfile>]
+
+pssh-keygen B<-c> [B<-P> I<passphrase>] [B<-C> I<comment>]
+            [B<-f> I<keyfile>]
 
 pssh-keygen B<-l> [B<-f> I<input_keyfile>]
 
@@ -192,10 +220,19 @@ Specifies the number of bits in the key to be generated. The
 minimum is 512 bits; 1024 bits is the default, and should be
 considered sufficient from a security standpoint.
 
+=item -c
+
+Requests changing the comment in the private and public key
+files. The program will prompt for the file containing the
+private keys, for passphrase if the key has one, and for the
+new comment. Each of these prompts can be overriden be the
+appropriate command line option.
+
 =item -f I<file>
 
 Specifies the filename of the key file. Defaults to
-F<$ENV{HOME}/.ssh/identity> for I<rsa1> key files, and
+F<$ENV{HOME}/.ssh/identity> for I<rsa1> key files,
+F<$ENV{HOME}/.ssh/id_rsa> for I<rsa> key files, and
 F<$ENV{HOME}/.ssh/id_dsa> for I<dsa> key files.
 
 =item -l
@@ -221,8 +258,9 @@ Silence I<pssh-keygen>.
 =item -t I<type>
 
 Specifies the type of the key to create/manage. The possible
-values are C<'rsa1'> for protocol version 1 and C<'dsa'> for
-protocol version 2 DSA files. The default is C<'rsa1'>.
+values are C<'rsa1'> for protocol version 1, C<'dsa'> for
+protocol version 2 DSA files, and C<'rsa'> for protocol version
+2 RSA files. The default is C<'rsa1'>.
 
 =item -N I<new_passphrase>
 

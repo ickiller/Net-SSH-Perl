@@ -1,4 +1,4 @@
-# $Id: Perl.pm,v 1.80 2001/05/08 02:55:57 btrott Exp $
+# $Id: Perl.pm,v 1.82 2001/05/11 18:48:06 btrott Exp $
 
 package Net::SSH::Perl;
 use strict;
@@ -22,7 +22,7 @@ eval {
     $HOSTNAME = hostname();
 };
 
-$VERSION = "1.06";
+$VERSION = "1.10";
 
 sub VERSION { $VERSION }
 
@@ -418,7 +418,9 @@ have subtle differences from others. 3DES (C<3des-cbc>), Blowfish
 (C<blowfish-cbc>), and RC4 (C<arcfour>) ciphers are currently
 supported for SSH2 encryption, and integrity checking is performed
 by either the C<hmac-sha1> or C<hmac-md5> algorithms. Compression, if
-requested, is limited to Zlib.
+requested, is limited to Zlib. Supported server host key algorithms
+are C<ssh-dss> (the default) and C<ssh-rsa> (requires I<Crypt::RSA>);
+supported SSH2 public key authentication algorithms are the same.
 
 =head1 BASIC USAGE
 

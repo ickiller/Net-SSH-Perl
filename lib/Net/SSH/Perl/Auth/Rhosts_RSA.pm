@@ -1,4 +1,4 @@
-# $Id: Rhosts_RSA.pm,v 1.10 2001/04/05 04:00:52 btrott Exp $
+# $Id: Rhosts_RSA.pm,v 1.11 2001/05/10 07:15:37 btrott Exp $
 
 package Net::SSH::Perl::Auth::Rhosts_RSA;
 
@@ -42,9 +42,9 @@ sub authenticate {
     my $user = $ssh->config->get('user');
     $packet = $ssh->packet_start(SSH_CMSG_AUTH_RHOSTS_RSA);
     $packet->put_str($user);
-    $packet->put_int32($private_key->{bits});
-    $packet->put_mp_int($private_key->{e});
-    $packet->put_mp_int($private_key->{n});
+    $packet->put_int32($private_key->{rsa}{bits});
+    $packet->put_mp_int($private_key->{rsa}{e});
+    $packet->put_mp_int($private_key->{rsa}{n});
     $packet->send;
 
     $packet = Net::SSH::Perl::Packet->read($ssh);

@@ -1,4 +1,4 @@
-# $Id: SSH1.pm,v 1.11 2001/04/23 05:26:39 btrott Exp $
+# $Id: SSH1.pm,v 1.12 2001/05/10 22:44:22 btrott Exp $
 
 package Net::SSH::Perl::SSH1;
 use strict;
@@ -10,7 +10,7 @@ use Net::SSH::Perl::Constants qw( :protocol :msg :hosts );
 use Net::SSH::Perl::Cipher;
 use Net::SSH::Perl::Auth;
 use Net::SSH::Perl::Comp;
-use Net::SSH::Perl::Key::RSA;
+use Net::SSH::Perl::Key::RSA1;
 use Net::SSH::Perl::Util qw( :hosts _compute_session_id _rsa_public_encrypt );
 
 use Net::SSH::Perl;
@@ -73,7 +73,7 @@ sub _login {
 
     my %keys;
     for my $which (qw( public host )) {
-        $keys{$which} = Net::SSH::Perl::Key::RSA->new;
+        $keys{$which} = Net::SSH::Perl::Key::RSA1->new;
         $keys{$which}{rsa}{bits} = $packet->get_int32;
         $keys{$which}{rsa}{e}    = $packet->get_mp_int;
         $keys{$which}{rsa}{n}    = $packet->get_mp_int;

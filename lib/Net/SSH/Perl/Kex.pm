@@ -1,4 +1,4 @@
-# $Id: Kex.pm,v 1.16 2001/04/20 23:40:17 btrott Exp $
+# $Id: Kex.pm,v 1.17 2001/05/11 01:39:37 btrott Exp $
 
 package Net::SSH::Perl::Kex;
 use strict;
@@ -72,6 +72,10 @@ sub exchange {
     else {
         $proposal[ PROPOSAL_COMP_ALGS_CTOS ] =
         $proposal[ PROPOSAL_COMP_ALGS_STOC ] = "none";
+    }
+    if ($ssh->config->get('host_key_algorithms')) {
+        $proposal[ PROPOSAL_SERVER_HOST_KEY_ALGS ] =
+            $ssh->config->get('host_key_algorithms');
     }
 
     $kex->{client_kexinit} = $kex->kexinit(\@proposal);

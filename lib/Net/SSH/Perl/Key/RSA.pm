@@ -1,72 +1,209 @@
-# $Id: RSA.pm,v 1.9 2001/05/03 18:22:29 btrott Exp $
+# $Id: RSA.pm,v 1.3 2001/05/11 06:54:20 btrott Exp $
 
 package Net::SSH::Perl::Key::RSA;
 use strict;
 
-use Net::SSH::Perl::Util qw( :ssh1mp :authfile );
+use Net::SSH::Perl::Buffer qw( SSH2 );
+use Net::SSH::Perl::Constants qw( SSH_COMPAT_BUG_RSASIGMD5 );
+use Net::SSH::Perl::Util qw( :ssh2mp );
 
 use Net::SSH::Perl::Key;
 use base qw( Net::SSH::Perl::Key );
 
+use Math::Pari qw( PARI );
+use MIME::Base64;
+use Crypt::RSA;
+use Crypt::RSA::Primitives;
+use Crypt::RSA::Key;
+use Crypt::RSA::SS::PKCS1v15;
+use Convert::PEM;
 use Carp qw( croak );
-use Math::GMP;
-use Digest::MD5 qw( md5 );
+use Digest::SHA1 qw( sha1 );
+
+use constant INTBLOB_LEN => 20;
+
+sub ssh_name { 'ssh-rsa' }
 
 sub init {
     my $key = shift;
-    $key->{rsa} = {};
+    $key->{rsa_priv} = Crypt::RSA::Key::Private->new(Password => 'ssh');
+    $key->{rsa_pub} = Crypt::RSA::Key::Public->new;
 
-    my($blob) = @_;
-    return unless $blob;
-    my($bits, $e, $n) = split /\s+/, $blob, 3;
-    $key->{rsa}{bits} = $bits;
-    $key->{rsa}{e} = $e;
-    $key->{rsa}{n} = $n;
+    my($blob, $datafellows) = @_;
+
+    if ($blob) {
+        my $b = Net::SSH::Perl::Buffer->new;
+        $b->append($blob);
+        my $ktype = $b->get_str;
+        croak __PACKAGE__, "->init: cannot handle type '$ktype'"
+            unless $ktype eq $key->ssh_name;
+        $key->{rsa_pub}->e( $b->get_mp_int );
+        $key->{rsa_pub}->n( $b->get_mp_int );
+    }
+
+    if ($datafellows) {
+        $key->{datafellows} = $datafellows;
+    }
 }
 
-sub size { $_[0]->{rsa}{bits} }
+sub keygen {
+    my $class = shift;
+    my($bits, $datafellows) = @_;
+    my $rsa = Crypt::RSA->new;
+    my $key = $class->new(undef, $datafellows);
+    ($key->{rsa_pub}, $key->{rsa_priv}) = $rsa->keygen(
+                     Size      => $bits,
+                     Password  => 'ssh',
+                     Verbosity => 1,
+                     Identity  => 'Net::SSH::Perl',
+           );
+    die $rsa->errstr unless $key->{rsa_pub} && $key->{rsa_priv};
 
-sub keygen { die "RSA key generation is unimplemented" }
+    $key;
+}
+
+sub size { bitsize($_[0]->{rsa_pub}->n) }
 
 sub read_private {
     my $class = shift;
-    my($keyfile, $passphrase) = @_;
-    my $key;
-    eval {
-        $key = _load_private_key($keyfile, $passphrase);
-    };
-    !$key || $@ ? undef : $key;
+    my($key_file, $passphrase, $datafellows) = @_;
+
+    my $key = $class->new(undef, $datafellows);
+    my $pem = $key->_pem;
+    my $pkey = $pem->read(
+                  Filename => $key_file,
+                  Password => $passphrase
+             );
+    return unless $pkey;
+
+    for my $m (qw( n e )) {
+        $key->{rsa_pub}->$m( $pkey->{RSAPrivateKey}->{$m} );
+    }
+    for my $m (qw( n d p q dp dq qinv )) {
+        $key->{rsa_priv}->$m( $pkey->{RSAPrivateKey}->{$m} );
+    }
+
+    $key;
 }
 
 sub write_private {
     my $key = shift;
-    my($keyfile, $passphrase) = @_;
-    _save_private_key($keyfile, $key, $passphrase);
+    my($key_file, $passphrase) = @_;
+
+    ## Force generation of dp, dq, and qinv (used in Chinese
+    ## Remainder Theorem, not generated automatically).
+    unless ($key->{rsa_priv}->dp && $key->{rsa_priv}->dq &&
+            $key->{rsa_priv}->qinv) {
+        my $primitives = Crypt::RSA::Primitives->new;
+        $primitives->core_decrypt(
+                       Key        => $key->{rsa_priv},
+                       Cyphertext => int rand 5000
+              );
+    }
+
+    my $pem = $key->_pem;
+    my $pkey = { RSAPrivateKey => { } };
+
+    $pkey->{RSAPrivateKey}->{version} = 0;
+    $pkey->{RSAPrivateKey}->{e} = $key->{rsa_pub}->e;
+    for my $m (qw( n d p q dp dq qinv )) {
+        $pkey->{RSAPrivateKey}->{$m} = $key->{rsa_priv}->$m;
+    }
+
+    unless ($pem->write(
+                    Filename => $key_file,
+                    Password => $passphrase,
+                    Content  => $pkey
+           )) {
+        die $pem->errstr;
+    }
 }
 
-sub extract_public {
-    my $class = shift;
-    $class->new(@_);
+sub _pem {
+    my $key = shift;
+    unless (defined $key->{__pem}) {
+        my $pem = Convert::PEM->new(
+              Name => 'RSA PRIVATE KEY',
+              ASN  => qq(
+                  RSAPrivateKey SEQUENCE {
+                      version INTEGER,
+                      n INTEGER,
+                      e INTEGER,
+                      d INTEGER,
+                      p INTEGER,
+                      q INTEGER,
+                      dp INTEGER,
+                      dq INTEGER,
+                      qinv INTEGER
+                  }
+           ));
+        $pem->asn->configure( decode => { bigint => 'Math::Pari' },
+                              encode => { bigint => 'Math::Pari' } );
+        $key->{__pem} = $pem;
+    }
+    $key->{__pem};
 }
 
-sub dump_public { $_[0]->as_blob }
+sub dump_public { $_[0]->ssh_name . ' ' . encode_base64( $_[0]->as_blob, '' ) }
+
+sub sign {
+    my $key = shift;
+    my($data) = @_;
+    my $dgst = ${ $key->{datafellows} } && SSH_COMPAT_BUG_RSASIGMD5 ?
+        'MD5' : 'SHA1';
+    my $rsa = Crypt::RSA::SS::PKCS1v15->new( Digest => $dgst );
+    my $sig = $rsa->sign(
+                 Digest  => $dgst,
+                 Message => $data,
+                 Key     => $key->{rsa_priv}
+           );
+    croak $rsa->errstr unless $sig;
+    
+    my $b = Net::SSH::Perl::Buffer->new;
+    $b->put_str($key->ssh_name);
+    $b->put_str($sig);
+    $b->bytes;
+}
+
+sub verify {
+    my $key = shift;
+    my($signature, $data) = @_;
+
+    my $b = Net::SSH::Perl::Buffer->new;
+    $b->append($signature);
+    my $ktype = $b->get_str;
+    croak "Can't verify type ", $ktype unless $ktype eq $key->ssh_name;
+    my $sigblob = $b->get_str;
+
+    my $dgst = ${ $key->{datafellows} } && SSH_COMPAT_BUG_RSASIGMD5 ?
+        'MD5' : 'SHA1';
+
+    my $rsa = Crypt::RSA::SS::PKCS1v15->new( Digest => $dgst );
+    $rsa->verify(
+                 Key       => $key->{rsa_pub},
+                 Digest    => $dgst,
+                 Message   => $data,
+                 Signature => $sigblob
+           );
+}
 
 sub equal {
     my($keyA, $keyB) = @_;
-    $keyA->{rsa}{bits} == $keyB->{rsa}{bits} &&
-    $keyA->{rsa}{n} == $keyB->{rsa}{n} &&
-    $keyA->{rsa}{e} == $keyB->{rsa}{e};
+    $keyA->{rsa_pub} && $keyB->{rsa_pub} &&
+    $keyA->{rsa_pub}->e == $keyB->{rsa_pub}->e &&
+    $keyA->{rsa_pub}->n == $keyB->{rsa_pub}->n;
 }
 
 sub as_blob {
     my $key = shift;
-    join ' ', $key->{rsa}{bits}, $key->{rsa}{e}, $key->{rsa}{n};
+    my $b = Net::SSH::Perl::Buffer->new;
+    $b->put_str($key->ssh_name);
+    $b->put_mp_int($key->{rsa_pub}->e);
+    $b->put_mp_int($key->{rsa_pub}->n);
+    $b->bytes;
 }
 
-sub fingerprint_raw {
-    my $key = shift;
-    _mp_linearize($key->{rsa}->{n}) . _mp_linearize($key->{rsa}->{e});
-}
+sub fingerprint_raw { $_[0]->as_blob }
 
 1;
 __END__
@@ -77,21 +214,45 @@ Net::SSH::Perl::Key::RSA - RSA key object
 
 =head1 SYNOPSIS
 
-    use Net::SSH::Perl::Key::RSA;
-    my $key = Net::SSH::Perl::Key::RSA->new;
+    use Net::SSH::Perl::Key;
+    my $key = Net::SSH::Perl::Key->new('RSA');
 
 =head1 DESCRIPTION
 
 I<Net::SSH::Perl::Key::RSA> subclasses I<Net::SSH::Perl::Key>
-to implement a key object, SSH style. This object provides
-functionality needed by I<Net::SSH::Perl>, ie. for checking
-host key files, determining whether keys are equal, generating
-key fingerprints, etc.
+to implement a key object, SSH style. This object provides all
+of the methods needed for a RSA key object; the underlying
+implementation is provided by I<Crypt::RSA>, and this class
+wraps around that module to provide SSH-specific functionality
+(eg. taking in a I<Net::SSH::Perl::Buffer> blob and transforming
+it into a key object).
 
 =head1 USAGE
 
 I<Net::SSH::Perl::Key::RSA> implements the interface described in
-the documentation for I<Net::SSH::Perl::Key>.
+the documentation for I<Net::SSH::Perl::Key>. Any differences or
+additions are described here.
+
+=head2 $key->sign($data)
+
+Wraps around I<Crypt::RSA::SS::PKCS1v15::sign> to sign I<$data>
+using the private key portions of I<$key>, then encodes that
+signature into an SSH-compatible signature blob.
+
+Returns the signature blob.
+
+=head2 $key->verify($signature, $data)
+
+Given a signature blob I<$signature> and the original signed data
+I<$data>, attempts to verify the signature using the public key
+portion of I<$key>. This wraps around
+I<Crypt::RSA::SS::PKCS1v15::verify> to perform the core verification.
+
+I<$signature> should be an SSH-compatible signature blob, as
+returned from I<sign>; I<$data> should be a string of data, as
+passed to I<sign>.
+
+Returns true if the verification succeeds, false otherwise.
 
 =head1 AUTHOR & COPYRIGHTS
 

@@ -1,10 +1,10 @@
-# $Id: DSA.pm,v 1.17 2001/05/03 18:21:47 btrott Exp $
+# $Id: DSA.pm,v 1.21 2001/05/10 23:50:26 btrott Exp $
 
 package Net::SSH::Perl::Key::DSA;
 use strict;
 
 use Net::SSH::Perl::Buffer qw( SSH2 );
-use Net::SSH::Perl::Constants qw( KEX_DSS SSH_COMPAT_BUG_SIGBLOB );
+use Net::SSH::Perl::Constants qw( SSH_COMPAT_BUG_SIGBLOB );
 use Net::SSH::Perl::Util qw( :ssh2mp );
 
 use Net::SSH::Perl::Key;
@@ -18,6 +18,8 @@ use Digest::SHA1 qw( sha1 );
 
 use constant INTBLOB_LEN => 20;
 
+sub ssh_name { 'ssh-dss' }
+
 sub init {
     my $key = shift;
     $key->{dsa} = Crypt::DSA::Key->new;
@@ -29,13 +31,12 @@ sub init {
         $b->append($blob);
         my $ktype = $b->get_str;
         croak __PACKAGE__, "->init: cannot handle type '$ktype'"
-            unless $ktype eq KEX_DSS;
-        my $dsa = Crypt::DSA::Key->new;
+            unless $ktype eq $key->ssh_name;
+        my $dsa = $key->{dsa};
         $dsa->p( $b->get_mp_int );
         $dsa->q( $b->get_mp_int );
         $dsa->g( $b->get_mp_int );
         $dsa->pub_key( $b->get_mp_int );
-        $key->{dsa} = $dsa;
     }
 
     if ($datafellows) {
@@ -52,7 +53,7 @@ sub keygen {
     $key;
 }
 
-sub size { bitsize($_[0]->{dsa}->p) }
+sub size { $_[0]->{dsa}->size }
 
 sub read_private {
     my $class = shift;
@@ -80,14 +81,7 @@ sub write_private {
             );
 }
 
-sub extract_public {
-    my $class = shift;
-    my($blob) = @_;
-    my($type, $data) = split /\s+/, $blob;
-    $class->new( decode_base64($data) );
-}
-
-sub dump_public { KEX_DSS . ' ' . encode_base64( $_[0]->as_blob, '' ) }
+sub dump_public { $_[0]->ssh_name . ' ' . encode_base64( $_[0]->as_blob, '' ) }
 
 sub sign {
     my $key = shift;
@@ -103,7 +97,7 @@ sub sign {
     }
     else {
         my $b = Net::SSH::Perl::Buffer->new;
-        $b->put_str(KEX_DSS);
+        $b->put_str($key->ssh_name);
         $b->put_str($sigblob);
         $b->bytes;
     }
@@ -121,7 +115,7 @@ sub verify {
         my $b = Net::SSH::Perl::Buffer->new;
         $b->append($signature);
         my $ktype = $b->get_str;
-        croak "Can't verify type ", $ktype unless $ktype eq KEX_DSS;
+        croak "Can't verify type ", $ktype unless $ktype eq $key->ssh_name;
         $sigblob = $b->get_str;
     }
 
@@ -136,6 +130,7 @@ sub verify {
 
 sub equal {
     my($keyA, $keyB) = @_;
+    $keyA->{dsa} && $keyB->{dsa} &&
     $keyA->{dsa}->p == $keyB->{dsa}->p &&
     $keyA->{dsa}->q == $keyB->{dsa}->q &&
     $keyA->{dsa}->g == $keyB->{dsa}->g &&
@@ -145,7 +140,7 @@ sub equal {
 sub as_blob {
     my $key = shift;
     my $b = Net::SSH::Perl::Buffer->new;
-    $b->put_str(KEX_DSS);
+    $b->put_str($key->ssh_name);
     $b->put_mp_int($key->{dsa}->p);
     $b->put_mp_int($key->{dsa}->q);
     $b->put_mp_int($key->{dsa}->g);

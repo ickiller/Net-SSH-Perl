@@ -1,4 +1,4 @@
-# $Id: Key.pm,v 1.11 2001/05/03 18:18:08 btrott Exp $
+# $Id: Key.pm,v 1.16 2001/05/11 00:52:09 btrott Exp $
 
 package Net::SSH::Perl::Key;
 use strict;
@@ -6,6 +6,8 @@ use strict;
 use Digest::MD5 qw( md5 );
 use Digest::SHA1 qw( sha1 );
 use Digest::BubbleBabble qw( bubblebabble );
+use Net::SSH::Perl::Buffer;
+use MIME::Base64;
 
 sub new {
     my $class = shift;
@@ -19,9 +21,33 @@ sub new {
     $key;
 }
 
+use vars qw( %KEY_TYPES );
+%KEY_TYPES = (
+    'ssh-dss' => 'DSA',
+    'ssh-rsa' => 'RSA',
+);
+
+sub new_from_blob {
+    my $class = shift;
+    my($blob) = @_;
+    my $b = Net::SSH::Perl::Buffer->new;
+    $b->append($blob);
+    my $ssh_name = $b->get_str;
+    my $type = $KEY_TYPES{$ssh_name};
+    __PACKAGE__->new($type, @_);
+}
+
+sub extract_public {
+    my $class = shift;
+    my($blob) = @_;
+    my($ssh_name, $data) = split /\s+/, $blob;
+    my $type = $KEY_TYPES{$ssh_name};
+    __PACKAGE__->new($type, decode_base64($data));
+}
+
 BEGIN {
     no strict 'refs';
-    for my $meth (qw( read_private keygen extract_public )) {
+    for my $meth (qw( read_private keygen )) {
         *$meth = sub {
             my $class = shift;
             if ($class eq __PACKAGE__) {
@@ -32,6 +58,28 @@ BEGIN {
             $class->$meth(@_);
         };
     }
+}
+
+use vars qw( %OBJ_MAP );
+%OBJ_MAP = (
+    'DSA PRIVATE KEY' => 'DSA',
+    'RSA PRIVATE KEY' => 'RSA',
+);
+
+sub read_private_pem {
+    my $class = shift;
+    my $keyfile = $_[0];
+    local *FH;
+    open FH, $keyfile or return;
+    chomp(my $desc = <FH>);
+    close FH;
+    return unless $desc;
+    my($object) = $desc =~ /^-----BEGIN ([^\n\-]+)-----$/;
+    $class = $OBJ_MAP{$object} or return;
+    $class = __PACKAGE__ . "::" . $class;
+    eval "use $class;";
+    die "Key class '$class' is unsupported: $@" if $@;
+    $class->read_private(@_);
 }
 
 sub init;
@@ -78,7 +126,7 @@ the DSA implementation uses I<Crypt::DSA>.
 
 Creates a new object of type I<Net::SSH::Perl::Key::$key_type>,
 after loading the class implementing I<$key_type>. I<$key_type>
-should be either C<DSA> or C<RSA>, currently; these are the
+should be either C<DSA> or C<RSA1>, currently; these are the
 only supported key implementations at the moment.
 
 I<$blob>, if present, should be a string representation of the key,
@@ -109,7 +157,7 @@ passphrase, this might be a good time to ask the user for the
 actual passphrase. :)
 
 Returns the new key object, which is blessed into the subclass
-denoted by I<$key_type> (either C<DSA> or C<RSA>).
+denoted by I<$key_type> (either C<DSA> or C<RSA1>).
 
 =head2 Net::SSH::Perl::Key->keygen($key_type, $bits)
 
@@ -121,7 +169,7 @@ Your I<$key_type> implementation may not support key generation;
 if not, calling this method is a fatal error.
 
 Returns the new key object, which is blessed into the subclass
-denoted by I<$key_type> (either C<DSA> or C<RSA>).
+denoted by I<$key_type> (either C<DSA> or C<RSA1>).
 
 =head2 Net::SSH::Perl::Key->extract_public($key_type, $key_string)
 
@@ -132,7 +180,7 @@ extract public keys out of entries in F<known_hosts> and public
 identity files.
 
 Returns the new key object, which is blessed into the subclass
-denoted by I<$key_type> (either C<DSA> or C<RSA>).
+denoted by I<$key_type> (either C<DSA> or C<RSA1>).
 
 =head2 $key->write_private([ $file [, $pass] ])
 

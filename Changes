@@ -1,6 +1,29 @@
-$Id: Changes,v 1.42 2001/05/08 02:56:39 btrott Exp $
+$Id: Changes,v 1.47 2001/05/11 18:42:28 btrott Exp $
 
 Revision history for Net::SSH::Perl
+
+1.10  2001.05.11
+    - Added Key::RSA, an SSH2 key implementation, using Crypt::RSA;
+      this provides support for the 'ssh-rsa' public key
+      negotiation. Also supported by pssh-keygen (even for key
+      generation).
+    - Added HostKeyAlgorithms as a supported config option to set
+      server host key algorithms.
+    - Restructured DSA/publickey-auth implementation to allow for
+      multiple public key algorithms, not just DSA. Moved Auth/DSA
+      => Auth/Pubkey.
+    - Added support for determining PEM private key file types (eg.
+      RSA vs. DSA) from the first line of the PEM file.
+    - Fixed broken Rhosts-RSA support (SSH1).
+    - Added support for reading/writing comments from read_private
+      and write_private method for RSA1 SSH1 keys (-c option in
+      pssh-keygen).
+    - Renamed Key::RSA to Key::RSA1 to allow for Key::RSA as SSH2
+      RSA implementation.
+    - Changed Key::DSA::size to use Crypt::DSA::Key::size; removed
+      redundant Key initialization from Key::DSA::init.
+    - Kex::DH1 now works with any type of server public key, not
+      just DSA (ie. also works with ssh-rsa in addition to ssh-dss).
 
 1.06  2001.05.07
     - Fixed bug with Blowfish cipher in SSH1 protocol; symptom would

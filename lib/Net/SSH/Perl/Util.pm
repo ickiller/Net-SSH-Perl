@@ -1,4 +1,4 @@
-# $Id: Util.pm,v 1.23 2001/05/03 08:03:29 btrott Exp $
+# $Id: Util.pm,v 1.24 2001/05/10 22:44:22 btrott Exp $
 
 package Net::SSH::Perl::Util;
 use strict;
@@ -175,7 +175,7 @@ public keys (I<$host_key> and I<$public_key>, respectively),
 computes the session ID that is then used to uniquely identify
 the session between the server and client.
 
-I<$host_key> and I<$public_key> should be I<Net::SSH::Perl::Key::RSA>
+I<$host_key> and I<$public_key> should be I<Net::SSH::Perl::Key::RSA1>
 objects; I<$check_bytes> is an 8-byte string.
 
 Returns the session ID.
@@ -244,7 +244,7 @@ Dies if: the key file I<$key_file> can't be opened for
 reading; or the key file is "bad" (the ID string in the
 file doesn't match the PRIVATE_KEY_ID_STRING constant).
 
-Returns the RSA key (a I<Net::SSH::Perl::Key::RSA> object).
+Returns the RSA key (a I<Net::SSH::Perl::Key::RSA1> object).
 
 =head2 _load_private_key($key_file [, $passphrase ])
 
@@ -264,7 +264,7 @@ doesn't match the PRIVATE_KEY_ID_STRING constant); the
 file is encrypted using an unsupported encryption cipher;
 or the passphrase I<$passphrase> is incorrect.
 
-Returns the RSA key (a I<Net::SSH::Perl::Key::RSA> object).
+Returns the RSA key (a I<Net::SSH::Perl::Key::RSA1> object).
 
 =head2 _save_private_key($key_file, $key, [ $passphrase [, $comment ]])
 
@@ -284,7 +284,7 @@ inserted into the key file and can be used by clients when
 prompting for the passphrase upon loading the private key,
 etc. It should be somewhat descriptive of this key file.
 
-I<$key> should be a I<Net::SSH::Perl::Key::RSA> object.
+I<$key> should be a I<Net::SSH::Perl::Key::RSA1> object.
 
 =head2 _read_passphrase($prompt)
 

@@ -1,4 +1,4 @@
-# $Id: Constants.pm,v 1.17 2001/04/24 22:29:18 btrott Exp $
+# $Id: Constants.pm,v 1.19 2001/05/11 00:55:15 btrott Exp $
 
 package Net::SSH::Perl::Constants;
 use strict;
@@ -44,6 +44,7 @@ use vars qw( %CONSTANTS );
     'SSH_COMPAT_BUG_HMAC' => 0x04,
     'SSH_COMPAT_BUG_X11FWD' => 0x08,
     'SSH_COMPAT_OLD_SESSIONID' => 0x10,
+    'SSH_COMPAT_BUG_RSASIGMD5' => 0x2000,
 
     'SSH2_MSG_DISCONNECT' => 1,
     'SSH2_MSG_IGNORE' => 2,
@@ -90,9 +91,8 @@ use vars qw( %CONSTANTS );
     'CHAN_CLOSE_RCVD' => 0x02,
 
     'KEX_DH1' => 'diffie-hellman-group1-sha1',
-    'KEX_DSS' => 'ssh-dss',
     'KEX_DEFAULT_KEX' => 'diffie-hellman-group1-sha1',
-    'KEX_DEFAULT_PK_ALG' => 'ssh-dss',
+    'KEX_DEFAULT_PK_ALG' => 'ssh-dss,ssh-rsa',
     'KEX_DEFAULT_ENCRYPT' => '3des-cbc,blowfish-cbc,arcfour',
     'KEX_DEFAULT_MAC' => 'hmac-sha1,hmac-md5',
     'KEX_DEFAULT_COMP' => 'none,zlib',

@@ -1,4 +1,4 @@
-# $Id: Hosts.pm,v 1.7 2001/04/24 23:39:34 btrott Exp $
+# $Id: Hosts.pm,v 1.8 2001/05/11 01:05:24 btrott Exp $
 
 package Net::SSH::Perl::Util::Hosts;
 use strict;
@@ -19,7 +19,14 @@ sub _check_host_in_hostfile {
     while (<FH>) {
         chomp;
         my($hosts, $keyblob) = split /\s+/, $_, 2;
-        my $fkey = $key_class->extract_public($keyblob);
+        my $fkey;
+        ## Trap errors for unsupported key types (eg. if
+        ## known_hosts has an entry for an ssh-rsa key, and
+        ## we don't have Crypt::RSA installed).
+        eval {
+            $fkey = $key_class->extract_public($keyblob);
+        };
+        next if $@;
         for my $h (split /,/, $hosts) {
             if ($h eq $host) {
                 if ($key->equal($fkey)) {

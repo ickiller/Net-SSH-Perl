@@ -1,4 +1,4 @@
-# $Id: SSH2.pm,v 1.21 2001/05/05 03:39:04 btrott Exp $
+# $Id: SSH2.pm,v 1.22 2001/05/08 06:07:53 btrott Exp $
 
 package Net::SSH::Perl::SSH2;
 use strict;
@@ -102,7 +102,7 @@ sub _login {
     $packet->send;
 
     my $valid = 0;
-    my %auth_map = (password => 'Password', publickey => 'DSA');
+    my %auth_map = (password => 'Password', publickey => 'PublicKey');
     my(%tried, %auth);
     while (!$valid) {
         $packet = Net::SSH::Perl::Packet->read($ssh);

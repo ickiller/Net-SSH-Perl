@@ -1,4 +1,4 @@
-# $Id: Makefile.PL,v 1.18 2001/05/03 03:38:58 btrott Exp $
+# $Id: Makefile.PL,v 1.20 2001/05/11 07:03:46 btrott Exp $
 
 use ExtUtils::MakeMaker qw( prompt WriteMakefile );
 use strict;
@@ -19,6 +19,7 @@ my %BASE_PREREQS = (
         'Crypt::DH'         => '0.01',
         'Math::Pari'        => '2.001804',
         'MIME::Base64'      => 0,
+        'Convert::PEM'      => '0.05',
     },
 );
 
@@ -135,13 +136,13 @@ MSG
     print "\n";
 }
 
-unless (check_module('Convert::PEM', 0.04, \$missing)) {
+unless (check_module('Crypt::RSA', 1.37, \$missing)) {
     print<<MSG, "\n";
-Convert::PEM is required if you want to use DSA public key authentication
-with Net::SSH::Perl.
+Crypt::RSA is required if you wish to use the ssh-rsa public
+key algorithm (ssh-dss is used by default).
 MSG
     if (read_yes_or_no("Would you like to install it now? (y/n)", "y")) {
-        require CPAN; CPAN::Shell->install('Convert::PEM');
+        require CPAN; CPAN::Shell->install('Crypt::RSA');
         chdir $cwd or die "Can't chdir back to $cwd: $!";
     }
     print "\n";

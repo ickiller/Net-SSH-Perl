@@ -1,4 +1,4 @@
-# $Id: Config.pm,v 1.15 2001/05/03 17:57:22 btrott Exp $
+# $Id: Config.pm,v 1.16 2001/05/11 01:39:37 btrott Exp $
 
 package Net::SSH::Perl::Config;
 use strict;
@@ -16,6 +16,7 @@ use Carp qw( croak );
     CompressionLevel        => [ \&_set_str, 'compression_level' ],
     DSAAuthentication       => [ \&_set_yesno, 'auth_dsa' ],
     GlobalKnownHostsFile    => [ \&_set_str, 'global_known_hosts' ],
+    HostKeyAlgorithms       => [ \&_set_str, 'host_key_algorithms' ],
     HostName                => [ \&_set_str, 'hostname' ],
     IdentityFile            => [ \&_identity_file ],
     NumberOfPasswordPrompts => [ \&_set_str, 'number_of_password_prompts' ],

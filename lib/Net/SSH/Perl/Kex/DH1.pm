@@ -1,4 +1,4 @@
-# $Id: DH1.pm,v 1.12 2001/04/18 06:51:40 btrott Exp $
+# $Id: DH1.pm,v 1.14 2001/05/11 01:00:46 btrott Exp $
 
 package Net::SSH::Perl::Kex::DH1;
 use strict;
@@ -6,7 +6,7 @@ use strict;
 use Net::SSH::Perl::Buffer;
 use Net::SSH::Perl::Packet;
 use Net::SSH::Perl::Constants qw( :msg2 :kex );
-use Net::SSH::Perl::Key::DSA;
+use Net::SSH::Perl::Key;
 use Net::SSH::Perl::Util qw( bitsize );
 
 use Carp qw( croak );
@@ -39,8 +39,9 @@ sub exchange {
         SSH2_MSG_KEXDH_REPLY);
 
     my $host_key_blob = $packet->get_str;
-    my $s_host_key = Net::SSH::Perl::Key::DSA->new($host_key_blob,
+    my $s_host_key = Net::SSH::Perl::Key->new_from_blob($host_key_blob,
         \$ssh->{datafellows});
+    $ssh->debug("Received host key, type '" . $s_host_key->ssh_name . "'.");
 
     $ssh->check_host_key($s_host_key);
 
@@ -64,7 +65,7 @@ sub exchange {
         $shared_secret);
 
     $ssh->debug("Verifying server signature.");
-    croak "DSA verification failed for server host key"
+    croak "Key verification failed for server host key"
         unless $s_host_key->verify($signature, $hash);
 
     $kex->derive_keys($hash, $shared_secret);

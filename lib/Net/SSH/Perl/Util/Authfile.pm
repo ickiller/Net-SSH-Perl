@@ -1,4 +1,4 @@
-# $Id: Authfile.pm,v 1.3 2001/05/02 03:39:15 btrott Exp $
+# $Id: Authfile.pm,v 1.4 2001/05/10 22:44:23 btrott Exp $
 
 package Net::SSH::Perl::Util::Authfile;
 use strict;
@@ -34,7 +34,7 @@ sub _load_private_key {
     my $cipher_type = $buffer->get_int8;
     $buffer->get_int32;  ## Reserved data.
 
-    my $key = Net::SSH::Perl::Key::RSA->new;
+    my $key = Net::SSH::Perl::Key->new('RSA1');
     $key->{rsa}{bits} = $buffer->get_int32;
     $key->{rsa}{n} = $buffer->get_mp_int;
     $key->{rsa}{e} = $buffer->get_mp_int;
