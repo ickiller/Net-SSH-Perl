@@ -10,6 +10,7 @@ eg/pssh-keygen
 eg/remoteinteract.pl
 lib/Net/SSH/Perl.pm
 lib/Net/SSH/Perl/Auth.pm
+lib/Net/SSH/Perl/Auth/KeyboardInt.pm
 lib/Net/SSH/Perl/Auth/Password.pm
 lib/Net/SSH/Perl/Auth/PublicKey.pm
 lib/Net/SSH/Perl/Auth/RSA.pm

@@ -1,6 +1,19 @@
-$Id: Changes,v 1.50 2001/05/15 06:36:55 btrott Exp $
+$Id: Changes,v 1.53 2001/05/25 00:02:50 btrott Exp $
 
 Revision history for Net::SSH::Perl
+
+1.14  2001.05.15
+    - Added keyboard-interactive authentication (only usable in
+      an interactive session).
+    - Fixed Net::SSH::Perl::Key, which was unconditionally pulling
+      in MIME::Base64, Digest::SHA1, and Digest::BubbleBabble. This
+      caused problems for users of SSH1 protocol, for which these
+      modules shouldn't be prereqs (thanks to Jason Tolsma for
+      the spot). These modules are now conditionally loaded.
+    - Fixed 5.005_03 syntax error in Key::RSA (calling variable
+      method w/o parens).
+    - Fixed Key::RSA so that it works with version 1.42 of
+      Crypt::RSA.
 
 1.13  2001.05.14
     - Added Channel::check_window method to check the local "window"

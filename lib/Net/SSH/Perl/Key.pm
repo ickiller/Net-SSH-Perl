@@ -1,13 +1,10 @@
-# $Id: Key.pm,v 1.17 2001/05/11 22:10:40 btrott Exp $
+# $Id: Key.pm,v 1.18 2001/05/15 19:02:46 btrott Exp $
 
 package Net::SSH::Perl::Key;
 use strict;
 
 use Digest::MD5 qw( md5 );
-use Digest::SHA1 qw( sha1 );
-use Digest::BubbleBabble qw( bubblebabble );
 use Net::SSH::Perl::Buffer;
-use MIME::Base64;
 
 sub new {
     my $class = shift;
@@ -42,6 +39,8 @@ sub extract_public {
     my($blob) = @_;
     my($ssh_name, $data) = split /\s+/, $blob;
     my $type = $KEY_TYPES{$ssh_name};
+    eval "use MIME::Base64";
+    die $@ if $@;
     __PACKAGE__->new($type, decode_base64($data));
 }
 
@@ -100,7 +99,13 @@ sub fingerprint {
         _fp_bubblebabble($data) : _fp_hex($data);
 }
 
-sub _fp_bubblebabble { bubblebabble( Digest => sha1($_[0]) ) }
+sub _fp_bubblebabble {
+    eval "use Digest::BubbleBabble qw( bubblebabble )";
+    die "Can't load BubbleBabble implementation: $@" if $@;
+    eval "use Digest::SHA1 qw( sha1 )";
+    die "Can't load SHA1: $@" if $@;
+    bubblebabble( Digest => sha1($_[0]) )
+}
 
 sub _fp_hex { join ':', map { sprintf "%02x", ord } split //, md5($_[0]) }
 

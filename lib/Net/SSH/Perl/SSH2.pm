@@ -1,4 +1,4 @@
-# $Id: SSH2.pm,v 1.25 2001/05/14 07:49:42 btrott Exp $
+# $Id: SSH2.pm,v 1.26 2001/05/24 07:22:00 btrott Exp $
 
 package Net::SSH::Perl::SSH2;
 use strict;
@@ -44,7 +44,7 @@ sub _proto_init {
         $ssh->{config}->set('identity_files', [ "$ENV{HOME}/.ssh/id_dsa" ]);
     }
 
-    for my $a (qw( password dsa )) {
+    for my $a (qw( password dsa kbd_interactive )) {
         $ssh->{config}->set("auth_$a", 1)
             unless defined $ssh->{config}->get("auth_$a");
     }
@@ -102,7 +102,8 @@ sub _login {
     $packet->send;
 
     my $valid = 0;
-    my %auth_map = (password => 'Password', publickey => 'PublicKey');
+    my %auth_map = (password => 'Password', publickey => 'PublicKey',
+                    'keyboard-interactive' => 'KeyboardInt');
     my(%tried, %auth);
     while (!$valid) {
         $packet = Net::SSH::Perl::Packet->read($ssh);

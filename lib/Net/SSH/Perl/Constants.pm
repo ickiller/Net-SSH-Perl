@@ -1,4 +1,4 @@
-# $Id: Constants.pm,v 1.19 2001/05/11 00:55:15 btrott Exp $
+# $Id: Constants.pm,v 1.20 2001/05/24 07:21:43 btrott Exp $
 
 package Net::SSH::Perl::Constants;
 use strict;
@@ -61,6 +61,8 @@ use vars qw( %CONSTANTS );
     'SSH2_MSG_USERAUTH_SUCCESS' => 52,
     'SSH2_MSG_USERAUTH_BANNER' => 53,
     'SSH2_MSG_USERAUTH_PK_OK' => 60,
+    'SSH2_MSG_USERAUTH_INFO_REQUEST' => 60,
+    'SSH2_MSG_USERAUTH_INFO_RESPONSE' => 61,
     'SSH2_MSG_CHANNEL_OPEN' => 90,
     'SSH2_MSG_CHANNEL_OPEN_CONFIRMATION' => 91,
     'SSH2_MSG_CHANNEL_OPEN_FAILURE' => 92,

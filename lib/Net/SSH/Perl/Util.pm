@@ -1,4 +1,4 @@
-# $Id: Util.pm,v 1.24 2001/05/10 22:44:22 btrott Exp $
+# $Id: Util.pm,v 1.26 2001/05/24 23:59:42 btrott Exp $
 
 package Net::SSH::Perl::Util;
 use strict;
@@ -20,6 +20,7 @@ use vars qw( @EXPORT_OK %FUNC_TO_MOD %EXPORT_TAGS );
     _respond_to_rsa_challenge
     _rsa_public_encrypt
     _rsa_private_decrypt
+    _prompt
     _read_passphrase
     _read_yes_or_no
 );
@@ -49,6 +50,7 @@ use vars qw( @EXPORT_OK %FUNC_TO_MOD %EXPORT_TAGS );
     _respond_to_rsa_challenge => 'RSA',
     _rsa_public_encrypt       => 'RSA',
     _rsa_private_decrypt      => 'RSA',
+    _prompt                   => 'Term',
     _read_passphrase          => 'Term',
     _read_yes_or_no           => 'Term',
 );
@@ -285,6 +287,17 @@ prompting for the passphrase upon loading the private key,
 etc. It should be somewhat descriptive of this key file.
 
 I<$key> should be a I<Net::SSH::Perl::Key::RSA1> object.
+
+=head2 _prompt($prompt [, $default [, $echo ]])
+
+Emits an interactive prompt I<$prompt> with an optional
+default I<$default>. If I<$echo> is true, reads normally
+from I<STDIN>; if I<$echo> is false, calls
+I<_read_passphrase> internally to read sensitive
+information with echo off.
+
+Returns the user's answer to the prompt, I<$default> if
+no answer was provided.
 
 =head2 _read_passphrase($prompt)
 

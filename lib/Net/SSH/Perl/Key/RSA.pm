@@ -1,4 +1,4 @@
-# $Id: RSA.pm,v 1.3 2001/05/11 06:54:20 btrott Exp $
+# $Id: RSA.pm,v 1.5 2001/05/24 23:57:09 btrott Exp $
 
 package Net::SSH::Perl::Key::RSA;
 use strict;
@@ -15,6 +15,8 @@ use MIME::Base64;
 use Crypt::RSA;
 use Crypt::RSA::Primitives;
 use Crypt::RSA::Key;
+use Crypt::RSA::Key::Private;
+use Crypt::RSA::Key::Public;
 use Crypt::RSA::SS::PKCS1v15;
 use Convert::PEM;
 use Carp qw( croak );
@@ -107,7 +109,7 @@ sub write_private {
     $pkey->{RSAPrivateKey}->{version} = 0;
     $pkey->{RSAPrivateKey}->{e} = $key->{rsa_pub}->e;
     for my $m (qw( n d p q dp dq qinv )) {
-        $pkey->{RSAPrivateKey}->{$m} = $key->{rsa_priv}->$m;
+        $pkey->{RSAPrivateKey}->{$m} = $key->{rsa_priv}->$m();
     }
 
     unless ($pem->write(

@@ -1,4 +1,4 @@
-# $Id: Perl.pm,v 1.85 2001/05/15 06:45:51 btrott Exp $
+# $Id: Perl.pm,v 1.87 2001/05/16 01:56:45 btrott Exp $
 
 package Net::SSH::Perl;
 use strict;
@@ -22,7 +22,7 @@ eval {
     $HOSTNAME = hostname();
 };
 
-$VERSION = "1.13";
+$VERSION = "1.14";
 
 sub VERSION { $VERSION }
 
@@ -421,6 +421,11 @@ by either the C<hmac-sha1> or C<hmac-md5> algorithms. Compression, if
 requested, is limited to Zlib. Supported server host key algorithms
 are C<ssh-dss> (the default) and C<ssh-rsa> (requires I<Crypt::RSA>);
 supported SSH2 public key authentication algorithms are the same.
+
+If you're looking for SFTP support, take a look at I<Net::SFTP>,
+which provides a full-featured Perl implementation of SFTP, and
+sits on top of I<Net::SSH::Perl>. SFTP requires the usage of the
+SSH2 protocol.
 
 =head1 BASIC USAGE
 

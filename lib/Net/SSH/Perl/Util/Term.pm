@@ -1,7 +1,19 @@
-# $Id: Term.pm,v 1.3 2001/04/17 06:16:15 btrott Exp $
+# $Id: Term.pm,v 1.4 2001/05/24 07:21:28 btrott Exp $
 
 package Net::SSH::Perl::Util::Term;
 use strict;
+
+sub _prompt {
+    my($prompt, $def, $echo) = @_;
+    unless ($echo) {
+        return _read_passphrase($prompt);
+    }
+    else {
+        print $prompt . ($def ? "[$def] " : "");
+        chomp(my $ans = <STDIN>);
+        return $ans ? $ans : $def;
+    }
+}
 
 sub _read_passphrase {
     my($prompt) = @_;
