@@ -1,6 +1,18 @@
-$Id: Changes,v 1.36 2001/05/03 16:53:54 btrott Exp $
+$Id: Changes,v 1.39 2001/05/04 17:26:52 btrott Exp $
 
 Revision history for Net::SSH::Perl
+
+1.04
+    - Fixed bug in version/protocol exchange that was causing a DSA
+      signature verification error. I was cutting off just a newline,
+      and some versions of ssh2 were sending ctrl-M characters as
+      well that should be cut off. This caused errors like "DSA
+      verification failed for server host key" during key exchange.
+      Thanks to Matt Good (mgood@nextdoor.com) for the spot.
+    - Fixed host wildcard matching in Net::SSH::Perl::Config so that
+      the directive 'Host foo' no longer matches the host 'foobar';
+      this was incorrect behavior and inconsistent with ssh.
+    - Added more documentation for Key::DSA and Key::RSA.
 
 1.03  2001.05.03
     - Fixed error with Net::SSH::Perl::Key::DSA and MIME::Base64.

@@ -1,4 +1,4 @@
-# $Id: RC4.pm,v 1.4 2001/05/02 21:51:39 btrott Exp $
+# $Id: RC4.pm,v 1.5 2001/05/04 08:58:22 btrott Exp $
 
 package Net::SSH::Perl::Cipher::RC4;
 
@@ -32,6 +32,7 @@ sub init {
     $ciph->{y} = 0;
 }
 
+sub blocksize { 8 }
 sub keysize { 16 }
 
 sub encrypt {

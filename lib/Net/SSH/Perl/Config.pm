@@ -1,4 +1,4 @@
-# $Id: Config.pm,v 1.14 2001/04/20 22:52:11 btrott Exp $
+# $Id: Config.pm,v 1.15 2001/05/03 17:57:22 btrott Exp $
 
 package Net::SSH::Perl::Config;
 use strict;
@@ -77,11 +77,13 @@ sub merge_directive {
 
 sub _host {
     my($cfg, $key, $host) = @_;
-    if ($host ne '*' && $cfg->{_state}{host} !~ /$host/) {
-        $cfg->{_state}{host_matched} = 0;
+    (my $hostre = $host) =~ s/\*/.*/g;
+    $hostre =~ s/\?/./g;
+    if ($host eq '*' || $cfg->{_state}{host} =~ /^$hostre$/) {
+        $cfg->{_state}{host_matched} = 1;
     }
     else {
-        $cfg->{_state}{host_matched} = 1;
+        $cfg->{_state}{host_matched} = 0;
     }
 }
 

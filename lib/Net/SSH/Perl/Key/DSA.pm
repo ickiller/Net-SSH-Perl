@@ -1,4 +1,4 @@
-# $Id: DSA.pm,v 1.16 2001/05/03 16:51:43 btrott Exp $
+# $Id: DSA.pm,v 1.17 2001/05/03 18:21:47 btrott Exp $
 
 package Net::SSH::Perl::Key::DSA;
 use strict;
@@ -164,8 +164,8 @@ Net::SSH::Perl::Key::DSA - DSA key object
 
 =head1 SYNOPSIS
 
-    use Net::SSH::Perl::Key::DSA;
-    my $key = Net::SSH::Perl::Key::DSA->new;
+    use Net::SSH::Perl::Key;
+    my $key = Net::SSH::Perl::Key->new('DSA');
 
 =head1 DESCRIPTION
 
@@ -176,6 +176,33 @@ implementation is provided by I<Crypt::DSA>, and this class
 wraps around that module to provide SSH-specific functionality
 (eg. taking in a I<Net::SSH::Perl::Buffer> blob and transforming
 it into a key object).
+
+=head1 USAGE
+
+I<Net::SSH::Perl::Key::DSA> implements the interface described in
+the documentation for I<Net::SSH::Perl::Key>. Any differences or
+additions are described here.
+
+=head2 $key->sign($data)
+
+Wraps around I<Crypt::DSA::sign> to sign I<$data> using the private
+key portions of I<$key>, then encodes that signature into an
+SSH-compatible signature blob.
+
+Returns the signature blob.
+
+=head2 $key->verify($signature, $data)
+
+Given a signature blob I<$signature> and the original signed data
+I<$data>, attempts to verify the signature using the public key
+portion of I<$key>. This wraps around I<Crypt::DSA::verify> to
+perform the core verification.
+
+I<$signature> should be an SSH-compatible signature blob, as
+returned from I<sign>; I<$data> should be a string of data, as
+passed to I<sign>.
+
+Returns true if the verification succeeds, false otherwise.
 
 =head1 AUTHOR & COPYRIGHTS
 

@@ -1,4 +1,4 @@
-# $Id: RSA.pm,v 1.8 2001/05/03 03:05:56 btrott Exp $
+# $Id: RSA.pm,v 1.9 2001/05/03 18:22:29 btrott Exp $
 
 package Net::SSH::Perl::Key::RSA;
 use strict;
@@ -87,6 +87,11 @@ to implement a key object, SSH style. This object provides
 functionality needed by I<Net::SSH::Perl>, ie. for checking
 host key files, determining whether keys are equal, generating
 key fingerprints, etc.
+
+=head1 USAGE
+
+I<Net::SSH::Perl::Key::RSA> implements the interface described in
+the documentation for I<Net::SSH::Perl::Key>.
 
 =head1 AUTHOR & COPYRIGHTS
 

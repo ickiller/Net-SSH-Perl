@@ -1,4 +1,4 @@
-# $Id: Perl.pm,v 1.74 2001/05/03 16:51:54 btrott Exp $
+# $Id: Perl.pm,v 1.78 2001/05/04 08:55:23 btrott Exp $
 
 package Net::SSH::Perl;
 use strict;
@@ -22,7 +22,7 @@ eval {
     $HOSTNAME = hostname();
 };
 
-$VERSION = "1.03";
+$VERSION = "1.04";
 
 sub VERSION { $VERSION }
 
@@ -54,34 +54,35 @@ sub set_protocol {
     $ssh->_proto_init;
 }
 
-use vars qw( %COMPAT );
-%COMPAT = (
-    '^OpenSSH[-_]2\.[012]' => SSH_COMPAT_OLD_SESSIONID,
-    'MindTerm'             => 0,
-    '^2\.1\.0 '            => SSH_COMPAT_BUG_SIGBLOB |
-                              SSH_COMPAT_BUG_HMAC |
-                              SSH_COMPAT_OLD_SESSIONID,
-    '^2\.0\.'              => SSH_COMPAT_BUG_SIGBLOB |
-                              SSH_COMPAT_BUG_HMAC |
-                              SSH_COMPAT_OLD_SESSIONID |
-                              SSH_COMPAT_BUG_PUBKEYAUTH |
-                              SSH_COMPAT_BUG_X11FWD,
-    '^2\.[23]\.0 '         => SSH_COMPAT_BUG_HMAC,
-    '^2\.[2-9]\.'          => 0,
-    '^2\.4$'               => SSH_COMPAT_OLD_SESSIONID,
-    '^3\.0 SecureCRT'      => SSH_COMPAT_OLD_SESSIONID,
-    '^1\.7 SecureFX'       => SSH_COMPAT_OLD_SESSIONID,
-    '^2\.'                 => SSH_COMPAT_BUG_HMAC,
+use vars qw( @COMPAT );
+@COMPAT = (
+  [  '^OpenSSH[-_]2\.[012]' => SSH_COMPAT_OLD_SESSIONID,   ],
+  [  'MindTerm'             => 0,                          ],
+  [  '^2\.1\.0 '            => SSH_COMPAT_BUG_SIGBLOB |
+                               SSH_COMPAT_BUG_HMAC |
+                               SSH_COMPAT_OLD_SESSIONID,   ],
+  [  '^2\.0\.'              => SSH_COMPAT_BUG_SIGBLOB |
+                               SSH_COMPAT_BUG_HMAC |
+                               SSH_COMPAT_OLD_SESSIONID |
+                               SSH_COMPAT_BUG_PUBKEYAUTH |
+                               SSH_COMPAT_BUG_X11FWD,      ],
+  [  '^2\.[23]\.0 '         => SSH_COMPAT_BUG_HMAC,        ],
+  [  '^2\.[2-9]\.'          => 0,                          ],
+  [  '^2\.4$'               => SSH_COMPAT_OLD_SESSIONID,   ],
+  [  '^3\.0 SecureCRT'      => SSH_COMPAT_OLD_SESSIONID,   ],
+  [  '^1\.7 SecureFX'       => SSH_COMPAT_OLD_SESSIONID,   ],
+  [  '^2\.'                 => SSH_COMPAT_BUG_HMAC,        ],
 );
 
 sub _compat_init {
     my $ssh = shift;
     my($version) = @_;
     $ssh->{datafellows} = 0;
-    for my $re (keys %COMPAT) {
+    for my $rec (@COMPAT) {
+        my($re, $mask) = @$rec[0, 1];
         if ($version =~ /$re/) {
-            $ssh->debug("Compat match: $version matches pattern '$re'.");
-            $ssh->{datafellows} = $COMPAT{$re};
+            $ssh->debug("Compat match: '$version' matches pattern '$re'.");
+            $ssh->{datafellows} = $mask;
             return;
         }
     }
@@ -245,7 +246,7 @@ sub _exchange_identification {
     my $ssh = shift;
     my $sock = $ssh->{session}{sock};
     my $remote_id = <$sock>;
-    $ssh->{server_version_string} = substr $remote_id, 0, -1;
+    ($ssh->{server_version_string} = $remote_id) =~ s/\cM?\n$//;
     my($remote_major, $remote_minor, $remote_version) = $remote_id =~
         /^SSH-(\d+)\.(\d+)-([^\n]+)\n$/;
     $ssh->debug("Remote protocol version $remote_major.$remote_minor, remote software version $remote_version");

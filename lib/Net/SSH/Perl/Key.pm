@@ -1,4 +1,4 @@
-# $Id: Key.pm,v 1.9 2001/05/03 16:52:24 btrott Exp $
+# $Id: Key.pm,v 1.11 2001/05/03 18:18:08 btrott Exp $
 
 package Net::SSH::Perl::Key;
 use strict;
@@ -39,6 +39,7 @@ sub extract_public;
 sub dump_public;
 sub as_blob;
 sub equal;
+sub size;
 
 sub fingerprint {
     my $key = shift;
@@ -73,16 +74,22 @@ the DSA implementation uses I<Crypt::DSA>.
 
 =head1 USAGE
 
-=head2 Net::SSH::Perl::Key->new($key_type, @args)
+=head2 Net::SSH::Perl::Key->new($key_type [, $blob [, $compat_flag_ref ]])
 
 Creates a new object of type I<Net::SSH::Perl::Key::$key_type>,
 after loading the class implementing I<$key_type>. I<$key_type>
 should be either C<DSA> or C<RSA>, currently; these are the
 only supported key implementations at the moment.
 
-I<@args>, if present, are passed directly to the I<init> method
-of the subclass implementation; take a look at the docs for the
-subclasses to determine what I<@args> can contain.
+I<$blob>, if present, should be a string representation of the key,
+from which the key object can be initialized. In fact, it should
+be the representation that is returned from the I<as_blob> method,
+below.
+
+I<$compat_flag_ref> should be a reference to the SSH compatibility
+flag, which is generally stored inside of the I<Net::SSH::Perl>
+object. This flag is used by certain key implementations (C<DSA>)
+to work around differences between SSH2 protocol implementations.
 
 Returns the new key object, which is blessed into the subclass.
 
@@ -160,6 +167,10 @@ representation, etc.
 Returns true if the public portions of I<$key> are equal to
 those of I<$key2>, and false otherwise. This is used when
 comparing server host keys to keys in F<known_hosts>.
+
+=head2 $key->size
+
+Returns the size (in bits) of the key I<$key>.
 
 =head2 $key->fingerprint([ I<$type> ])
 

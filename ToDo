@@ -1,4 +1,4 @@
-$Id: ToDo,v 1.14 2001/05/02 23:17:14 btrott Exp $
+$Id: ToDo,v 1.15 2001/05/04 17:26:45 btrott Exp $
 
 Add more tests to the test suite; add SSH2 tests.
 
@@ -6,6 +6,8 @@ Fixes to SSH2 implementation:
     * get rid of dummy shell channel (if possible)
     * more documentation
     * anything currently marked XXX in the code
+
+Compatibility with NetScreen?
 
 Switch over to using Crypt::RSA for SSH1 RSA implementation.
 
