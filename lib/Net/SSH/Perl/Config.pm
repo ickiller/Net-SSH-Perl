@@ -1,4 +1,4 @@
-# $Id: Config.pm,v 1.9 2001/03/13 05:27:46 btrott Exp $
+# $Id: Config.pm,v 1.10 2001/03/16 20:35:13 btrott Exp $
 
 package Net::SSH::Perl::Config;
 use strict;
@@ -9,7 +9,7 @@ use Carp qw( croak );
 %DIRECTIVES = (
     Host                    => [ \&_host ],
     BatchMode               => [ \&_batch_mode ],
-    Cipher                  => [ \&_set_str, 'cipher' ],
+    Cipher                  => [ \&_cipher ],
     Compression             => [ \&_set_yesno, 'compression' ],
     CompressionLevel        => [ \&_set_str, 'compression_level' ],
     GlobalKnownHostsFile    => [ \&_set_str, 'global_known_hosts' ],
@@ -96,6 +96,23 @@ sub _set_str {
     my($cfg, $key, $value) = @_;
     return if exists $cfg->{o}{ $DIRECTIVES{$key}[1] };
     $cfg->{o}{ $DIRECTIVES{$key}[1] } = $value;
+}
+
+{
+    my %cipher_map = (
+        idea     => 'IDEA',
+        none     => 'None',
+        des      => 'DES',
+        '3des'   => 'DES3',
+        arcfour  => 'ARCFOUR',
+        blowfish => 'Blowfish',
+    );
+
+    sub _cipher {
+        my($cfg, $key, $value) = @_;
+        return if exists $cfg->{o}{cipher};
+        $cfg->{o}{cipher} = $cipher_map{$value};
+    }
 }
 
 sub _set_yesno {

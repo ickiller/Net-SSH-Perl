@@ -1,8 +1,21 @@
-$Id: Changes,v 1.22 2001/03/14 04:22:56 btrott Exp $
+$Id: Changes,v 1.27 2001/03/22 01:48:37 btrott Exp $
 
 Revision history for Net::SSH::Perl
 
-0.64
+0.65
+    - fixed bug with "Cipher <name>" in config file or 'options'
+      param. This wasn't mapping ssh cipher names to Net::SSH::Perl
+      cipher names (ie. should map 'idea' => 'IDEA'). Thanks to
+      Edward Vopata (vopata@pulsar.itg.ti.com) for the spot and
+      a patch.
+    - made it clearer that Net::SSH::Perl currently supports only
+      SSH1 protocol.
+    - better error checking for getservbyname lookup of ssh
+      service (to get default port).
+    - added eg/remoteinteract.pl, which demonstrates how to interact
+      with a remote (interactive) command.
+
+0.64  2001.03.13
     - fixed bug in Net::SSH::Perl::Cipher::new_from_key_str;
       empty key string (passphrase) was broken. This never
       cropped up in regular usage, only in testing.

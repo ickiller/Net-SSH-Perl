@@ -6,6 +6,7 @@ ToDo
 eg/cmd.pl
 eg/pscp
 eg/pssh
+eg/remoteinteract.pl
 lib/Net/SSH/Perl.pm
 lib/Net/SSH/Perl/Auth.pm
 lib/Net/SSH/Perl/Auth/Password.pm

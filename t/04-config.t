@@ -1,4 +1,4 @@
-# $Id: 04-config.t,v 1.6 2001/03/09 21:46:50 btrott Exp $
+# $Id: 04-config.t,v 1.8 2001/03/20 01:34:19 btrott Exp $
 
 use strict;
 
@@ -10,7 +10,7 @@ use Net::SSH::Perl;
 use Net::SSH::Perl::Config;
 
 use Test;
-BEGIN { plan tests => 25 };
+BEGIN { plan tests => 26 };
 
 my($cfg, $ssh);
 
@@ -29,6 +29,12 @@ ok($if && UNIVERSAL::isa($if, 'ARRAY'));
 ok(scalar @$if, 2);
 ok($if->[0], 'identity');
 ok($if->[1], 'identity2');
+
+## Test "Cipher" config directive, which was broken in versions
+## prior to 0.64.
+$cfg->merge_directive("Cipher idea");
+ok($cfg->get('cipher'), 'IDEA');
+
 
 ## Test whether options given in constructor override config file.
 $cfg = Net::SSH::Perl::Config->new("foo", port => 22);

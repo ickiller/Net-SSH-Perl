@@ -1,4 +1,4 @@
-# $Id: Perl.pm,v 1.44 2001/03/14 04:22:43 btrott Exp $
+# $Id: Perl.pm,v 1.48 2001/03/22 01:46:21 btrott Exp $
 
 package Net::SSH::Perl;
 use strict;
@@ -24,7 +24,7 @@ eval {
     $HOSTNAME = hostname();
 };
 
-$VERSION = "0.64";
+$VERSION = "0.65";
 
 sub new {
     my $class = shift;
@@ -149,8 +149,10 @@ sub _connect {
         unless defined $raddr;
     my $rport = $ssh->{config}->get('port') || 'ssh';
     if ($rport =~ /\D/) {
-        my @serv = getservbyname($rport, 'tcp');
+        my @serv = getservbyname(my $serv = $rport, 'tcp');
         $rport = $serv[2];
+        croak "Can't map service name '$serv' to port number"
+            unless defined $rport;
     }
     $ssh->debug("Connecting to $ssh->{host}, port $rport.");
     connect($sock, sockaddr_in($rport, $raddr))
@@ -602,20 +604,21 @@ Net::SSH::Perl - Perl client Interface to SSH
 
 =head1 DESCRIPTION
 
-I<Net::SSH::Perl> is an all-Perl module implementing an ssh client.
-It enables you to simply and securely execute commands on remote
-machines, and receive the STDOUT, STDERR, and exit status of that
-remote command.
+I<Net::SSH::Perl> is an all-Perl module implementing an SSH client.
+It implements the SSH1 protocol; SSH2 functionality will come at
+some point in the future.
 
-It contains built-in support for various methods of authenticating
-with the server (password authentication, RSA challenge-response
-authentication, etc.). It completely implements the I/O buffering,
-packet transport, and user authentication layers of the SSH protocol,
-and makes use of external Perl libraries (in the Crypt:: family of
-modules) to handle encryption of all data sent across the insecure
-network. It can also read your existing SSH configuration files
-(F</etc/ssh_config>, etc.), RSA identity files, known hosts files,
-etc.
+I<Net::SSH::Perl> enables you to simply and securely execute commands
+on remote machines, and receive the STDOUT, STDERR, and exit status
+of that remote command. It contains built-in support for various
+methods of authenticating with the server (password authentication,
+RSA challenge-response authentication, etc.). It completely implements
+the I/O buffering, packet transport, and user authentication layers
+of the SSH protocol, and makes use of external Perl libraries (in
+the Crypt:: family of modules) to handle encryption of all data sent
+across the insecure network. It can also read your existing SSH
+configuration files (F</etc/ssh_config>, etc.), RSA identity files,
+known hosts files, etc.
 
 One advantage to using I<Net::SSH::Perl> over wrapper-style
 implementations of ssh clients is that it saves on process
@@ -871,6 +874,9 @@ Obviously, writing these handlers requires some knowledge of the
 contents of each packet. For that, read through the SSH RFC, which
 explains each packet type in detail. There's a I<get_*> method for
 each datatype that you may need to read from a packet.
+
+Take a look at F<eg/remoteinteract.pl> for an example of interacting
+with a remote command through the use of I<register_handler>.
 
 =head1 ADVANCED METHODS
 

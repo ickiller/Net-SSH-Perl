@@ -1,4 +1,4 @@
-$Id: README,v 1.9 2001/03/09 19:17:38 btrott Exp $
+$Id: README,v 1.10 2001/03/22 01:48:24 btrott Exp $
 
 This is Net::SSH::Perl.
 
@@ -47,13 +47,21 @@ any additional Crypt:: modules you wish to use.
 SAMPLES/TUTORIALS
 
 Take a look at the scripts in eg/ for help and examples of
-using Net::SSH::Perl. eg/cmd.pl is just a simple example of
-some of the functionality, eg/pssh is an ssh-like client
-for running commands on remote servers and connecting to a
-shell on remote servers, and eg/pscp is a very simple
-scp-like script. Both pssh and pscp support a subset
-of the command line options that the actual tools support;
-obviously, only those options supported by Net::SSH::Perl are
-supported by the two scripts.
+using Net::SSH::Perl.
+
+* eg/cmd.pl is just a simple example of some of the
+functionality in the module;
+
+# eg/pssh is an ssh-like client for running commands on
+remote servers and connecting to a shell on remote servers;
+
+* eg/pscp is a very simple scp-like script;
+
+* eg/remoteinteract.pl is an example of using register_handler
+to interact with a remote (interactive) command.
+
+Both pssh and pscp support a subset of the command line options
+that the actual tools support; obviously, only those options
+supported by Net::SSH::Perl are supported by the two scripts.
 
 Benjamin Trott / ben@rhumba.pair.com
