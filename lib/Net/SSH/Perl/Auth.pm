@@ -1,4 +1,4 @@
-# $Id: Auth.pm,v 1.5 2001/03/05 22:55:01 btrott Exp $
+# $Id: Auth.pm,v 1.6 2001/04/17 06:16:34 btrott Exp $
 
 package Net::SSH::Perl::Auth;
 
@@ -18,13 +18,15 @@ BEGIN {
     );
     %AUTH_REVERSE = reverse %AUTH;
 
+    @AUTH_ORDER = qw( 7 6 1 4 2 5 3 );
+}
+
+sub _determine_supported {
     for my $auth (keys %AUTH) {
         my $pack = sprintf "%s::%s", __PACKAGE__, $auth;
         eval "use $pack";
         $SUPPORTED{$AUTH{$auth}}++ unless $@;
     }
-
-    @AUTH_ORDER = qw( 7 6 1 4 2 5 3 );
 }
 
 sub new {
@@ -69,6 +71,9 @@ sub mask {
 }
 
 sub supported {
+    unless (keys %SUPPORTED) {
+        _determine_supported();
+    }
     return [ keys %SUPPORTED ] unless @_;
     my $id = shift;
     return $id == 0 || exists $SUPPORTED{$id} unless @_;

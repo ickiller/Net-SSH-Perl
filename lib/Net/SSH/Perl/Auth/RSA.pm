@@ -1,4 +1,4 @@
-# $Id: RSA.pm,v 1.10 2001/03/12 19:40:31 btrott Exp $
+# $Id: RSA.pm,v 1.11 2001/04/17 01:05:10 btrott Exp $
 
 package Net::SSH::Perl::Auth::RSA;
 
@@ -50,7 +50,7 @@ sub _authenticate {
     $ssh->debug("Trying RSA authentication with key '$comment'");
 
     $packet = $ssh->packet_start(SSH_CMSG_AUTH_RSA);
-    $packet->put_mp_int($public_key->{n});
+    $packet->put_mp_int($public_key->{rsa}{n});
     $packet->send;
 
     $packet = Net::SSH::Perl::Packet->read($ssh);

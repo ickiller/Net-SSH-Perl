@@ -1,15 +1,16 @@
-# $Id: 03-packet.t,v 1.6 2001/03/08 20:47:29 btrott Exp $
+# $Id: 03-packet.t,v 1.7 2001/04/22 03:32:24 btrott Exp $
 
 use strict;
 
 use Net::SSH::Perl;
 use Net::SSH::Perl::Packet;
-use Net::SSH::Perl::Constants qw/:msg/;
+use Net::SSH::Perl::Constants qw( :msg PROTOCOL_SSH1 );
 
 use Test;
 BEGIN { plan tests => 8 }
 
-my $ssh = Net::SSH::Perl->new("dummy");
+my $ssh = Net::SSH::Perl->new("dummy", _test => 1);
+$ssh->set_protocol(PROTOCOL_SSH1);
 my $packet;
 
 ## Okay, so you shouldn't ever be doing this,

@@ -1,8 +1,9 @@
-# $Id: Config.pm,v 1.10 2001/03/16 20:35:13 btrott Exp $
+# $Id: Config.pm,v 1.14 2001/04/20 22:52:11 btrott Exp $
 
 package Net::SSH::Perl::Config;
 use strict;
 
+use Net::SSH::Perl::Constants qw( :protocol );
 use vars qw( %DIRECTIVES $AUTOLOAD );
 use Carp qw( croak );
 
@@ -10,15 +11,19 @@ use Carp qw( croak );
     Host                    => [ \&_host ],
     BatchMode               => [ \&_batch_mode ],
     Cipher                  => [ \&_cipher ],
+    Ciphers                 => [ \&_set_str, 'ciphers' ],
     Compression             => [ \&_set_yesno, 'compression' ],
     CompressionLevel        => [ \&_set_str, 'compression_level' ],
+    DSAAuthentication       => [ \&_set_yesno, 'auth_dsa' ],
     GlobalKnownHostsFile    => [ \&_set_str, 'global_known_hosts' ],
     HostName                => [ \&_set_str, 'hostname' ],
     IdentityFile            => [ \&_identity_file ],
+    NumberOfPasswordPrompts => [ \&_set_str, 'number_of_password_prompts' ],
     PasswordAuthentication  => [ \&_set_yesno, 'auth_password' ],
     PasswordPromptHost      => [ \&_set_yesno, 'password_prompt_host' ],
     PasswordPromptLogin     => [ \&_set_yesno, 'password_prompt_login' ],
     Port                    => [ \&_set_str, 'port' ],
+    Protocol                => [ \&_protocol ],
     RhostsAuthentication    => [ \&_set_yesno, 'auth_rhosts' ],
     RhostsRSAAuthentication => [ \&_set_yesno, 'auth_rhosts_rsa' ],
     RSAAuthentication       => [ \&_set_yesno, 'auth_rsa' ],
@@ -90,6 +95,19 @@ sub _identity_file {
     $cfg->{identity_files} = []
         unless ref $cfg->{o}{identity_files} eq "ARRAY";
     push @{ $cfg->{o}{identity_files} }, $id_file;
+}
+
+sub _protocol {
+    my($cfg, $key, $p_list) = @_;
+    return if exists $cfg->{o}{protocol};
+    for my $p (split /\s*,\s*/, $p_list) {
+        croak "Invalid protocol: must be 1 or 2"
+            unless $p == 1 || $p == 2;
+        $cfg->{o}{protocol} |= $p;
+        if ($p == PROTOCOL_SSH1 && !($cfg->{o}{protocol} & PROTOCOL_SSH2)) {
+            $cfg->{o}{protocol} |= PROTOCOL_SSH1_PREFERRED;
+        }
+    }
 }
 
 sub _set_str {

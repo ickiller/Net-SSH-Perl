@@ -1,66 +1,155 @@
-# $Id: Constants.pm,v 1.6 2001/03/06 00:33:59 btrott Exp $
+# $Id: Constants.pm,v 1.17 2001/04/24 22:29:18 btrott Exp $
 
 package Net::SSH::Perl::Constants;
 use strict;
 
-use constant PROTOCOL_MAJOR => 1;
-use constant PROTOCOL_MINOR => 5;
+use vars qw( %CONSTANTS );
+%CONSTANTS = (
+    'PROTOCOL_MAJOR_1' => 1,
+    'PROTOCOL_MINOR_1' => 5,
+    'PROTOCOL_MAJOR_2' => 2,
+    'PROTOCOL_MINOR_2' => 0,
+    'PROTOCOL_SSH1_PREFERRED' => 4,
+    'PROTOCOL_SSH1' => 1,
+    'PROTOCOL_SSH2' => 2,
 
-use constant SSH_MSG_NONE => 0;
-use constant SSH_MSG_DISCONNECT => 1;
-use constant SSH_SMSG_PUBLIC_KEY => 2;
-use constant SSH_CMSG_SESSION_KEY => 3;
-use constant SSH_CMSG_USER => 4;
-use constant SSH_CMSG_AUTH_RHOSTS => 5;
-use constant SSH_CMSG_AUTH_RSA => 6;
-use constant SSH_SMSG_AUTH_RSA_CHALLENGE => 7;
-use constant SSH_CMSG_AUTH_RSA_RESPONSE => 8;
-use constant SSH_CMSG_AUTH_PASSWORD => 9;
-use constant SSH_CMSG_REQUEST_PTY => 10;
-use constant SSH_CMSG_EXEC_SHELL => 12;
-use constant SSH_CMSG_EXEC_CMD => 13;
-use constant SSH_SMSG_SUCCESS => 14;
-use constant SSH_SMSG_FAILURE => 15;
-use constant SSH_CMSG_STDIN_DATA => 16;
-use constant SSH_SMSG_STDOUT_DATA => 17;
-use constant SSH_SMSG_STDERR_DATA => 18;
-use constant SSH_CMSG_EOF => 19;
-use constant SSH_SMSG_EXITSTATUS => 20;
-use constant SSH_MSG_IGNORE => 32;
-use constant SSH_CMSG_EXIT_CONFIRMATION => 33;
-use constant SSH_CMSG_AUTH_RHOSTS_RSA => 35;
-use constant SSH_MSG_DEBUG => 36;
-use constant SSH_CMSG_REQUEST_COMPRESSION => 37;
+    'SSH_MSG_NONE' => 0,
+    'SSH_MSG_DISCONNECT' => 1,
+    'SSH_SMSG_PUBLIC_KEY' => 2,
+    'SSH_CMSG_SESSION_KEY' => 3,
+    'SSH_CMSG_USER' => 4,
+    'SSH_CMSG_AUTH_RHOSTS' => 5,
+    'SSH_CMSG_AUTH_RSA' => 6,
+    'SSH_SMSG_AUTH_RSA_CHALLENGE' => 7,
+    'SSH_CMSG_AUTH_RSA_RESPONSE' => 8,
+    'SSH_CMSG_AUTH_PASSWORD' => 9,
+    'SSH_CMSG_REQUEST_PTY' => 10,
+    'SSH_CMSG_EXEC_SHELL' => 12,
+    'SSH_CMSG_EXEC_CMD' => 13,
+    'SSH_SMSG_SUCCESS' => 14,
+    'SSH_SMSG_FAILURE' => 15,
+    'SSH_CMSG_STDIN_DATA' => 16,
+    'SSH_SMSG_STDOUT_DATA' => 17,
+    'SSH_SMSG_STDERR_DATA' => 18,
+    'SSH_CMSG_EOF' => 19,
+    'SSH_SMSG_EXITSTATUS' => 20,
+    'SSH_MSG_IGNORE' => 32,
+    'SSH_CMSG_EXIT_CONFIRMATION' => 33,
+    'SSH_CMSG_AUTH_RHOSTS_RSA' => 35,
+    'SSH_MSG_DEBUG' => 36,
+    'SSH_CMSG_REQUEST_COMPRESSION' => 37,
 
-use constant HOST_OK => 1;
-use constant HOST_NEW => 2;
-use constant HOST_CHANGED => 3;
+    'SSH_COMPAT_BUG_SIGBLOB' => 0x01,
+    'SSH_COMPAT_BUG_PUBKEYAUTH' => 0x02,
+    'SSH_COMPAT_BUG_HMAC' => 0x04,
+    'SSH_COMPAT_BUG_X11FWD' => 0x08,
+    'SSH_COMPAT_OLD_SESSIONID' => 0x10,
 
-use constant PRIVATE_KEY_ID_STRING => "SSH PRIVATE KEY FILE FORMAT 1.1\n";
+    'SSH2_MSG_DISCONNECT' => 1,
+    'SSH2_MSG_IGNORE' => 2,
+    'SSH2_MSG_UNIMPLEMENTED' => 3,
+    'SSH2_MSG_DEBUG' => 4,
+    'SSH2_MSG_SERVICE_REQUEST' => 5,
+    'SSH2_MSG_SERVICE_ACCEPT' => 6,
+    'SSH2_MSG_KEXINIT' => 20,
+    'SSH2_MSG_NEWKEYS' => 21,
+    'SSH2_MSG_KEXDH_INIT' => 30,
+    'SSH2_MSG_KEXDH_REPLY' => 31,
+    'SSH2_MSG_USERAUTH_REQUEST' => 50,
+    'SSH2_MSG_USERAUTH_FAILURE' => 51,
+    'SSH2_MSG_USERAUTH_SUCCESS' => 52,
+    'SSH2_MSG_USERAUTH_BANNER' => 53,
+    'SSH2_MSG_USERAUTH_PK_OK' => 60,
+    'SSH2_MSG_CHANNEL_OPEN' => 90,
+    'SSH2_MSG_CHANNEL_OPEN_CONFIRMATION' => 91,
+    'SSH2_MSG_CHANNEL_OPEN_FAILURE' => 92,
+    'SSH2_MSG_CHANNEL_WINDOW_ADJUST' => 93,
+    'SSH2_MSG_CHANNEL_DATA' => 94,
+    'SSH2_MSG_CHANNEL_EXTENDED_DATA' => 95,
+    'SSH2_MSG_CHANNEL_EOF' => 96,
+    'SSH2_MSG_CHANNEL_CLOSE' => 97,
+    'SSH2_MSG_CHANNEL_REQUEST' => 98,
+    'SSH2_MSG_CHANNEL_SUCCESS' => 99,
+    'SSH2_MSG_CHANNEL_FAILURE' => 100,
 
-use constant MAX_PACKET_SIZE => 256000;
+    'SSH_CHANNEL_OPENING' => 3,
+    'SSH_CHANNEL_OPEN' => 4,
+    'SSH_CHANNEL_INPUT_DRAINING' => 8,
+    'SSH_CHANNEL_OUTPUT_DRAINING' => 9,
+    'SSH_CHANNEL_LARVAL' => 10,
 
-use vars qw( @EXPORT_OK %EXPORT_TAGS );
-use Exporter;
-use base qw( Exporter );
+    'CHAN_INPUT_OPEN' => 0x01,
+    'CHAN_INPUT_WAIT_DRAIN' => 0x02,
+    'CHAN_INPUT_WAIT_IEOF' => 0x04,
+    'CHAN_INPUT_CLOSED' => 0x08,
+    'CHAN_OUTPUT_OPEN' => 0x10,
+    'CHAN_OUTPUT_WAIT_DRAIN' => 0x20,
+    'CHAN_OUTPUT_WAIT_IEOF' => 0x40,
+    'CHAN_OUTPUT_CLOSED' => 0x80,
+    'CHAN_CLOSE_SENT' => 0x01,
+    'CHAN_CLOSE_RCVD' => 0x02,
 
-BEGIN {
-    my %EXPORT_RULES = (
-        '^SSH_\w?MSG' => 'msg',
-        '^HOST'       => 'hosts',
-    );
+    'KEX_DH1' => 'diffie-hellman-group1-sha1',
+    'KEX_DSS' => 'ssh-dss',
+    'KEX_DEFAULT_KEX' => 'diffie-hellman-group1-sha1',
+    'KEX_DEFAULT_PK_ALG' => 'ssh-dss',
+    'KEX_DEFAULT_ENCRYPT' => '3des-cbc,blowfish-cbc,arcfour',
+    'KEX_DEFAULT_MAC' => 'hmac-sha1,hmac-md5',
+    'KEX_DEFAULT_COMP' => 'none,zlib',
+    'KEX_DEFAULT_LANG' => '',
+
+    'PROPOSAL_KEX_ALGS' => 0,
+    'PROPOSAL_SERVER_HOST_KEY_ALGS' => 1,
+    'PROPOSAL_CIPH_ALGS_CTOS' => 2,
+    'PROPOSAL_CIPH_ALGS_STOC' => 3,
+    'PROPOSAL_MAC_ALGS_CTOS' => 4,
+    'PROPOSAL_MAC_ALGS_STOC' => 5,
+    'PROPOSAL_COMP_ALGS_CTOS' => 6,
+    'PROPOSAL_COMP_ALGS_STOC' => 7,
+    'PROPOSAL_LANG_CTOS' => 8,
+    'PROPOSAL_LANG_STOC' => 9,
+
+    'HOST_OK' => 1,
+    'HOST_NEW' => 2,
+    'HOST_CHANGED' => 3,
+
+    'PRIVATE_KEY_ID_STRING' => "SSH PRIVATE KEY FILE FORMAT 1.1\n",
+
+    'MAX_PACKET_SIZE' => 256000,
+);
+
+use vars qw( %TAGS );
+my %RULES = (
+    '^SSH_\w?MSG'  => 'msg',
+    '^SSH2_\w?MSG' => 'msg2',
+    '^KEX'         => 'kex',
+    '^PROTOCOL'    => 'protocol',
+    '^HOST'        => 'hosts',
+    '^PROPOSAL'    => 'proposal',
+    '^SSH_CHANNEL|^CHAN' => 'channels',
+    '^SSH_COMPAT'  => 'compat',
+);
+
+for my $re (keys %RULES) {
+    @{ $TAGS{ $RULES{$re} } } = grep /$re/, keys %CONSTANTS;
+}
+
+sub import {
+    my $class = shift;
+
+    my @to_export;
+    my @args = @_;
+    for my $item (@args) {
+        push @to_export,
+            $item =~ s/^:// ? @{ $TAGS{$item} } : $item;
+    }
 
     no strict 'refs';
-    my $class = __PACKAGE__;
-    while (my($key, $val) = each %{"${class}::"}) {
-        local(*ENTRY) = $val;
-        if ($key ne "import" && defined $val && defined *ENTRY{CODE}) {
-            push @EXPORT_OK, $key;
-            for my $rule (keys %EXPORT_RULES) {
-                push @{ $EXPORT_TAGS{ $EXPORT_RULES{$rule} } }, $key
-                    if $key =~ /$rule/;
-            }
-        }
+    my $pkg = caller;
+    for my $con (@to_export) {
+        warn __PACKAGE__, " does not export the constant '$con'"
+            unless exists $CONSTANTS{$con};
+        *{"${pkg}::$con"} = sub () { $CONSTANTS{$con} }
     }
 }
 

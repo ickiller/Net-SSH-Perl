@@ -1,4 +1,4 @@
-# $Id: 04-config.t,v 1.8 2001/03/20 01:34:19 btrott Exp $
+# $Id: 04-config.t,v 1.9 2001/04/22 03:31:46 btrott Exp $
 
 use strict;
 
@@ -57,7 +57,7 @@ ok($cfg->get('interactive'), 1);
 
 ## Test that config file gets read correctly when passed to
 ## Net::SSH::Perl constructor.
-$ssh = Net::SSH::Perl->new("foo", user_config => $CFG_FILE);
+$ssh = Net::SSH::Perl->new("foo", user_config => $CFG_FILE, _test => 1);
 ok($ssh);
 ok($ssh->config);
 ok($ssh->config->get('port'), 10000);
@@ -68,21 +68,21 @@ ok($ssh->config->get('hostname'), 'foo.bar.com');
 ok($ssh->{host}, 'foo.bar.com');
 
 ## And that constructor overrides work here, as well.
-$ssh = Net::SSH::Perl->new("foo", user_config => $CFG_FILE, port => 22);
+$ssh = Net::SSH::Perl->new("foo", user_config => $CFG_FILE, port => 22, _test => 1);
 ok($ssh->config->get('port'), 22);
 
 ## And now test whether we can set additional options through
 ## Net::SSH::Perl constructor; and that they override config
 ## file.
 $ssh = Net::SSH::Perl->new("foo", user_config => $CFG_FILE, options => [
-    "Port 22", "RhostsAuthentication no", "BatchMode no" ]);
+    "Port 22", "RhostsAuthentication no", "BatchMode no" ], _test => 1);
 ok($ssh->config->get('port'), 22);
 ok($ssh->config->get('auth_rhosts'), 0);
 ok($ssh->config->get('interactive'), 1);
 
 ## Test whether a user we pass in through constructor properly
 ## overrides the absence of a user passed in through login method.
-$ssh = Net::SSH::Perl->new("foo", options => [ "User bar" ]);
+$ssh = Net::SSH::Perl->new("foo", options => [ "User bar" ], _test => 1);
 ok($ssh->config->get('user'), 'bar');
 $ssh->login;
 ok($ssh->config->get('user'), 'bar');

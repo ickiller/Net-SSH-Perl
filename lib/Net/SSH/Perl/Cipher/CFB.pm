@@ -1,4 +1,4 @@
-# $Id: CFB.pm,v 1.4 2001/03/05 22:54:16 btrott Exp $
+# $Id: CFB.pm,v 1.5 2001/04/03 19:44:47 btrott Exp $
 
 # This code based in part on the Systemics Crypt::CFB.
 # Parts Copyright (C) 1995, 1996 Systemics Ltd (http://www.systemics.com/)
@@ -8,10 +8,10 @@ package Net::SSH::Perl::Cipher::CFB;
 use strict;
 
 sub new {
-    my($class, $ciph) = @_;
+    my($class, $ciph, $iv) = @_;
     bless {
         cipher    => $ciph,
-        iv        => "\0" x $ciph->blocksize,
+        iv        => $iv || ("\0" x $ciph->blocksize),
     }, $class;
 }
 

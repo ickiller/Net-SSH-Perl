@@ -1,4 +1,4 @@
-# $Id: Perl.pm,v 1.50.2.3 2001/04/20 17:46:18 btrott Exp $
+# $Id: Perl.pm,v 1.71 2001/05/02 23:16:56 btrott Exp $
 
 package Net::SSH::Perl;
 use strict;
@@ -6,10 +6,9 @@ use strict;
 use Net::SSH::Perl::Packet;
 use Net::SSH::Perl::Buffer;
 use Net::SSH::Perl::Config;
-use Net::SSH::Perl::Constants qw( :msg :hosts PROTOCOL_MAJOR PROTOCOL_MINOR );
+use Net::SSH::Perl::Constants qw( :protocol :compat :hosts );
 use Net::SSH::Perl::Cipher;
-use Net::SSH::Perl::Auth;
-use Net::SSH::Perl::Util qw( :hosts _compute_session_id _rsa_public_encrypt );
+use Net::SSH::Perl::Util qw( :hosts _read_yes_or_no );
 
 use vars qw( $VERSION $CONFIG $HOSTNAME );
 $CONFIG = {};
@@ -17,14 +16,15 @@ $CONFIG = {};
 use Socket;
 use Fcntl;
 use Symbol;
-use Math::GMP;
 use Carp qw( croak );
 use Sys::Hostname;
 eval {
     $HOSTNAME = hostname();
 };
 
-$VERSION = "0.67";
+$VERSION = "1.01";
+
+sub VERSION { $VERSION }
 
 sub new {
     my $class = shift;
@@ -32,19 +32,70 @@ sub new {
     croak "usage: ", __PACKAGE__, "->new(\$host)"
         unless defined $host;
     my $ssh = bless { host => $host }, $class;
-    $ssh->_init(@_);
-    $ssh->debug($class->version_string);
+    my %p = @_;
+    $ssh->{_test} = delete $p{_test};
+    $ssh->_init(%p);
+    $ssh->_connect unless $ssh->{_test};
     $ssh;
 }
 
-sub version_string {
-    my $class = shift;
-    sprintf "%s Version %s, protocol version %s.%s.",
-        $class, $VERSION, PROTOCOL_MAJOR, PROTOCOL_MINOR;
+sub protocol { $_[0]->{use_protocol} }
+
+sub set_protocol {
+    my $ssh = shift;
+    my $proto = shift;
+    $ssh->{use_protocol} = $proto;
+    my $proto_class = join '::', __PACKAGE__,
+        ($proto == PROTOCOL_SSH2 ? "SSH2" : "SSH1");
+    (my $lib = $proto_class . ".pm") =~ s!::!/!g;
+    require $lib;
+    bless $ssh, $proto_class;
+    $ssh->debug($proto_class->version_string);
+    $ssh->_proto_init;
 }
+
+use vars qw( %COMPAT );
+%COMPAT = (
+    '^OpenSSH[-_]2\.[012]' => SSH_COMPAT_OLD_SESSIONID,
+    'MindTerm'             => 0,
+    '^2\.1\.0 '            => SSH_COMPAT_BUG_SIGBLOB |
+                              SSH_COMPAT_BUG_HMAC |
+                              SSH_COMPAT_OLD_SESSIONID,
+    '^2\.0\.'              => SSH_COMPAT_BUG_SIGBLOB |
+                              SSH_COMPAT_BUG_HMAC |
+                              SSH_COMPAT_OLD_SESSIONID |
+                              SSH_COMPAT_BUG_PUBKEYAUTH |
+                              SSH_COMPAT_BUG_X11FWD,
+    '^2\.[23]\.0 '         => SSH_COMPAT_BUG_HMAC,
+    '^2\.[2-9]\.'          => 0,
+    '^2\.4$'               => SSH_COMPAT_OLD_SESSIONID,
+    '^3\.0 SecureCRT'      => SSH_COMPAT_OLD_SESSIONID,
+    '^1\.7 SecureFX'       => SSH_COMPAT_OLD_SESSIONID,
+    '^2\.'                 => SSH_COMPAT_BUG_HMAC,
+);
+
+sub _compat_init {
+    my $ssh = shift;
+    my($version) = @_;
+    $ssh->{datafellows} = 0;
+    for my $re (keys %COMPAT) {
+        if ($version =~ /$re/) {
+            $ssh->debug("Compat match: $version matches pattern '$re'.");
+            $ssh->{datafellows} = $COMPAT{$re};
+            return;
+        }
+    }
+    $ssh->debug("No compat match: $version.");
+}
+
+sub version_string { }
+
+sub client_version_string { $_[0]->{client_version_string} }
+sub server_version_string { $_[0]->{server_version_string} }
 
 sub _init {
     my $ssh = shift;
+
     my %arg = @_;
     my $user_config = delete $arg{user_config} || "$ENV{HOME}/.ssh/config";
     my $sys_config  = delete $arg{sys_config}  || "/etc/ssh_config";
@@ -70,29 +121,14 @@ sub _init {
         $ssh->{host} = $real_host;
     }
 
-    if (my $ciph = $ssh->{config}->get('cipher')) {
-        my $cid;
-        unless ($cid = Net::SSH::Perl::Cipher::id($ciph)) {
-            croak "Cipher '$ciph' is unknown.";
-        }
-        unless (Net::SSH::Perl::Cipher::supported($cid)) {
-            croak "Cipher '$ciph' is not supported.";
-        }
-    }
-
     if (scalar getpwuid($<) eq "root" &&
       !defined $ssh->{config}->get('privileged')) {
         $ssh->{config}->set('privileged', 1);
     }
 
-    unless ($ssh->{config}->get('user_known_hosts')) {
-        $ssh->{config}->set('user_known_hosts', "$ENV{HOME}/.ssh/known_hosts");
-    }
-    unless ($ssh->{config}->get('global_known_hosts')) {
-        $ssh->{config}->set('global_known_hosts', "/etc/ssh_known_hosts");
-    }
-    unless (my $if = $ssh->{config}->get('identity_files')) {
-        $ssh->{config}->set('identity_files', [ "$ENV{HOME}/.ssh/identity" ]);
+    unless ($ssh->{config}->get('protocol')) {
+        $ssh->{config}->set('protocol',
+            PROTOCOL_SSH1 | PROTOCOL_SSH2 | PROTOCOL_SSH1_PREFERRED);
     }
 
     unless (defined $ssh->{config}->get('password_prompt_login')) {
@@ -101,14 +137,14 @@ sub _init {
     unless (defined $ssh->{config}->get('password_prompt_host')) {
         $ssh->{config}->set('password_prompt_host', 1);
     }
-
-    # Turn on all auth methods we support unless otherwise instructed.
-    # If the server doesn't support them they won't be tried anyway.
-    for my $a (qw( password rhosts rhosts_rsa rsa )) {
-        $ssh->{config}->set("auth_$a", 1)
-            unless defined $ssh->{config}->get("auth_$a");
+    unless (defined $ssh->{config}->get('number_of_password_prompts')) {
+        $ssh->{config}->set('number_of_password_prompts', 3);
     }
 }
+
+sub _proto_init { }
+
+sub register_handler { }
 
 sub config { $_[0]->{config} }
 
@@ -195,16 +231,7 @@ sub _create_socket {
     $sock;
 }
 
-sub _disconnect {
-    my $ssh = shift;
-    my $packet = $ssh->packet_start(SSH_MSG_DISCONNECT);
-    $packet->put_str("@_") if @_;
-    $packet->send;
-    $ssh->{session} = {};
-    for my $key (qw( _cmd_stdout _cmd_stderr _cmd_exit )) {
-        $ssh->{$key} = "";
-    }
-}
+sub _disconnect { }
 
 sub fatal_disconnect {
     my $ssh = shift;
@@ -212,22 +239,51 @@ sub fatal_disconnect {
     croak @_;
 }
 
-sub sock {
-    unless ($_[0]->{session}{sock}) {
-        croak "Not connected!";
-    }
-    $_[0]->{session}{sock};
-}
+sub sock { $_[0]->{session}{sock} }
 
 sub _exchange_identification {
     my $ssh = shift;
     my $sock = $ssh->{session}{sock};
     my $remote_id = <$sock>;
+    $ssh->{server_version_string} = substr $remote_id, 0, -1;
     my($remote_major, $remote_minor, $remote_version) = $remote_id =~
         /^SSH-(\d+)\.(\d+)-([^\n]+)\n$/;
     $ssh->debug("Remote protocol version $remote_major.$remote_minor, remote software version $remote_version");
-    printf $sock "SSH-%d.%d-%s\n",
-        PROTOCOL_MAJOR, PROTOCOL_MINOR, $VERSION;
+
+    my $proto = $ssh->config->get('protocol');
+    my($mismatch, $set_proto);
+    if ($remote_major == 1) {
+        if ($remote_minor == 99 && $proto & PROTOCOL_SSH2 &&
+            !($proto & PROTOCOL_SSH1_PREFERRED)) {
+            $set_proto = PROTOCOL_SSH2;
+        }
+        elsif (!($proto & PROTOCOL_SSH1)) {
+            $mismatch = 1;
+        }
+        else {
+            $set_proto = PROTOCOL_SSH1;
+        }
+    }
+    elsif ($remote_major == 2) {
+        if ($proto & PROTOCOL_SSH2) {
+            $set_proto = PROTOCOL_SSH2;
+        }
+    }
+    if ($mismatch) {
+        croak sprintf "Protocol major versions differ: %d vs. %d",
+            ($proto & PROTOCOL_SSH2) ? PROTOCOL_MAJOR_2 :
+            PROTOCOL_MAJOR_1, $remote_major;
+    }
+    my $compat20 = $set_proto == PROTOCOL_SSH2;
+    my $buf = sprintf "SSH-%d.%d-%s\n",
+        $compat20 ? PROTOCOL_MAJOR_2 : PROTOCOL_MAJOR_1,
+        $compat20 ? PROTOCOL_MINOR_2 : PROTOCOL_MINOR_1,
+        $VERSION;
+    $ssh->{client_version_string} = substr $buf, 0, -1;
+    print $sock $buf;
+
+    $ssh->set_protocol($set_proto);
+    $ssh->_compat_init($remote_version);
 }
 
 sub debug {
@@ -250,333 +306,10 @@ sub login {
     $ssh->{config}->set('pass', $pass);
 }
 
-sub _login {
-    my $ssh = shift;
-    my $user = $ssh->{config}->get('user');
-    croak "No user defined" unless $user;
+sub _login { }
 
-    $ssh->debug("Waiting for server public key.");
-    my $packet = Net::SSH::Perl::Packet->read_expect($ssh, SSH_SMSG_PUBLIC_KEY);
-
-    my $data = $packet->data;
-    my $check_bytes = $data->bytes(0, 8, "");
-
-    my %keys;
-    for my $which (qw( public host )) {
-        $keys{$which}{bits} = $data->get_int32;
-        $keys{$which}{e}    = $data->get_mp_int;
-        $keys{$which}{n}    = $data->get_mp_int;
-    }
-
-    my $protocol_flags = $data->get_int32;
-    my $supported_ciphers = $data->get_int32;
-    my $supported_auth = $data->get_int32;
-
-    $ssh->debug(sprintf "Received server public key (%d bits) and " .
-        "host key (%d bits).", $keys{public}{bits}, $keys{host}{bits});
-
-    my $session_id =
-      _compute_session_id($check_bytes, $keys{host}, $keys{public});
-    $ssh->{session}{id} = $session_id;
-
-    my $status =
-      _check_host_in_hostfile($ssh->{host},
-      $ssh->{config}->get('user_known_hosts'), $keys{host});
-
-    unless (defined $status && $status == HOST_OK) {
-        $status =
-          _check_host_in_hostfile($ssh->{host},
-          $ssh->{config}->get('global_known_hosts'), $keys{host});
-    }
-
-    if ($status == HOST_OK) {
-        $ssh->debug(sprintf "Host '%s' is known and matches the host key.",
-            $ssh->{host});
-    }
-    elsif ($status == HOST_NEW) {
-        $ssh->debug(sprintf "Host key for host '%s' not found from the list " .
-            "of known hosts... adding.", $ssh->{host});
-        _add_host_to_hostfile($ssh->{host},
-            $ssh->{config}->get('user_known_hosts'), $keys{host});
-    }
-    else {
-        croak sprintf "Host key for '%s' has changed!", $ssh->{host};
-    }
-
-    my $session_key = join '', map chr rand(255), 0..31;
-
-    my $skey = Math::GMP->new(0);
-    for my $i (0..31) {
-        $skey = Math::GMP::mul_2exp_gmp($skey, 8);
-        if ($i < 16) {
-            Math::GMP::add_ui_gmp($skey,
-                ord(substr($session_key, $i, 1) ^ substr($session_id, $i, 1)));
-        }
-        else {
-            Math::GMP::add_ui_gmp($skey, ord(substr($session_key, $i, 1)));
-        }
-    }
-
-    if (Math::GMP::cmp_two($keys{public}{n}, $keys{host}{n}) < 0) {
-        $skey = _rsa_public_encrypt($skey, $keys{public});
-        $skey = _rsa_public_encrypt($skey, $keys{host});
-    }
-    else {
-        $skey = _rsa_public_encrypt($skey, $keys{host});
-        $skey = _rsa_public_encrypt($skey, $keys{public});
-    }
-
-    my($cipher, $cipher_name);
-    if ($cipher_name = $ssh->{config}->get('cipher')) {
-        $cipher = Net::SSH::Perl::Cipher::id($cipher_name);
-    }
-    else {
-        my $cid;
-        if (($cid = Net::SSH::Perl::Cipher::id('IDEA')) &&
-            Net::SSH::Perl::Cipher::supported($cid, $supported_ciphers)) {
-            $cipher_name = 'IDEA';
-            $cipher = $cid;
-        }
-        elsif (($cid = Net::SSH::Perl::Cipher::id('DES3')) &&
-            Net::SSH::Perl::Cipher::supported($cid, $supported_ciphers)) {
-            $cipher_name = 'DES3';
-            $cipher = $cid;
-        }
-    }
-
-    unless (Net::SSH::Perl::Cipher::supported($cipher, $supported_ciphers)) {
-        croak sprintf "Selected cipher type %s not supported by server.",
-            $cipher_name;
-    }
-    $ssh->debug(sprintf "Encryption type: %s", $cipher_name);
-
-    $packet = $ssh->packet_start(SSH_CMSG_SESSION_KEY);
-    $packet->put_int8($cipher);
-    $packet->put_char($_) for split //, $check_bytes;
-    $packet->put_mp_int($skey);
-    $packet->put_int32(0);    ## No protocol flags.
-    $packet->send;
-    $ssh->debug("Sent encrypted session key.");
-
-    $ssh->set_cipher($cipher_name, $session_key);
-    $ssh->{session}{key} = $session_key;
-
-    Net::SSH::Perl::Packet->read_expect($ssh, SSH_SMSG_SUCCESS);
-    $ssh->debug("Received encryption confirmation.");
-
-    $packet = $ssh->packet_start(SSH_CMSG_USER);
-    $packet->put_str($user);
-    $packet->send;
-
-    $packet = Net::SSH::Perl::Packet->read($ssh);
-    return 1 if $packet->type == SSH_SMSG_SUCCESS;
-
-    if ($packet->type != SSH_SMSG_FAILURE) {
-        $ssh->fatal_disconnect(sprintf
-          "Protocol error: got %d in response to SSH_CMSG_USER", $packet->type);
-    }
-
-    my $auth_order = Net::SSH::Perl::Auth::auth_order();
-    for my $auth_id (@$auth_order) {
-        next unless Net::SSH::Perl::Auth::supported($auth_id, $supported_auth);
-        my $auth = Net::SSH::Perl::Auth->new(Net::SSH::Perl::Auth::name($auth_id), $ssh);
-        my $valid = $auth->authenticate;
-        return 1 if $valid;
-    }
-}
-
-sub compression {
-    my $ssh = shift;
-    if (@_) {
-        my $level = shift;
-        $ssh->debug("Enabling compression at level $level.");
-        $ssh->{session}{compression} = $level;
-
-        my($err);
-        ($ssh->{session}{send_compression}, $err) =
-            Compress::Zlib::deflateInit({ Level => $level });
-        $ssh->fatal_disconnect("Can't create outgoing compression stream")
-            unless $err == Compress::Zlib::Z_OK();
-
-        ($ssh->{session}{receive_compression}, $err) =
-            Compress::Zlib::inflateInit();
-        $ssh->fatal_disconnect("Can't create incoming compression stream")
-            unless $err == Compress::Zlib::Z_OK();
-    }
-    $ssh->{session}{compression};
-}
-
-sub send_compression { $_[0]->{session}{send_compression} }
-sub receive_compression { $_[0]->{session}{receive_compression} }
-
-sub register_handler {
-    my($ssh, $type, $sub, $force) = @_;
-    if (!exists $ssh->{client_handlers}{$type} || $force) {
-        $ssh->{client_handlers}{$type} = $sub;
-    }
-}
-
-sub _setup_connection {
-    my $ssh = shift;
-
-    $ssh->_connect;
-    $ssh->fatal_disconnect("Permission denied") unless $ssh->_login;
-
-    if ($ssh->{config}->get('compression')) {
-        eval { require Compress::Zlib; };
-        if ($@) {
-            $ssh->debug("Compression is disabled because Compress::Zlib can't be loaded.");
-        }
-        else {
-            my $level = $ssh->{config}->get('compression_level') || 6;
-            $ssh->debug("Requesting compression at level $level.");
-            my $packet = $ssh->packet_start(SSH_CMSG_REQUEST_COMPRESSION);
-            $packet->put_int32($level);
-            $packet->send;
-
-            $packet = Net::SSH::Perl::Packet->read($ssh);
-            if ($packet->type == SSH_SMSG_SUCCESS) {
-                $ssh->compression($level);
-            }
-            else {
-                $ssh->debug("Warning: Remote host refused compression.");
-            }
-        }
-    }
-
-    if ($ssh->{config}->get('use_pty')) {
-        $ssh->debug("Requesting pty.");
-        my($packet);
-        $packet = $ssh->packet_start(SSH_CMSG_REQUEST_PTY);
-        my($term) = $ENV{TERM} =~ /(\w+)/;
-        $packet->put_str($term);
-        $packet->put_int32(0) for 1..4;
-        $packet->put_int8(0);
-        $packet->send;
-
-        $packet = Net::SSH::Perl::Packet->read($ssh);
-        unless ($packet->type == SSH_SMSG_SUCCESS) {
-            $ssh->debug("Warning: couldn't allocate a pseudo tty.");
-        }
-    }
-}
-
-sub cmd {
-    my $ssh = shift;
-    my $cmd = shift;
-    my $stdin = shift;
-
-    $ssh->_setup_connection;
-
-    my($packet);
-
-    $ssh->debug("Sending command: $cmd");
-    $packet = $ssh->packet_start(SSH_CMSG_EXEC_CMD);
-    $packet->put_str($cmd);
-    $packet->send;
-
-    if (defined $stdin) {
-        my $chunk_size = 32000;
-        my $pos = 0;
-        while ($stdin) {
-            my $chunk = substr($stdin, 0, $chunk_size, '');
-            $packet = $ssh->packet_start(SSH_CMSG_STDIN_DATA);
-            $packet->put_str($chunk);
-            $packet->send;
-        }
-
-        $packet = $ssh->packet_start(SSH_CMSG_EOF);
-        $packet->send;
-
-        $packet = $ssh->packet_start(SSH_CMSG_EOF);
-        $packet->send;
-    }
-
-    $ssh->register_handler(SSH_SMSG_STDOUT_DATA,
-        sub { $ssh->{_cmd_stdout} .= $_[1]->get_str });
-    $ssh->register_handler(SSH_SMSG_STDERR_DATA,
-        sub { $ssh->{_cmd_stderr} .= $_[1]->get_str });
-    $ssh->register_handler(SSH_SMSG_EXITSTATUS,
-        sub { $ssh->{_cmd_exit} = $_[1]->get_int32 });
-
-    $ssh->_start_interactive(1);
-    my($stdout, $stderr, $exit) =
-        map $ssh->{"_cmd_$_"}, qw( stdout stderr exit );
-
-    $ssh->_disconnect;
-    ($stdout, $stderr, $exit);
-}
-
-sub shell {
-    my $ssh = shift;
-
-    $ssh->{config}->set('use_pty', 1)
-        unless defined $ssh->{config}->get('use_pty');
-    $ssh->_setup_connection;
-
-    $ssh->debug("Requesting shell.");
-    my $packet = $ssh->packet_start(SSH_CMSG_EXEC_SHELL);
-    $packet->send;
-
-    $ssh->register_handler(SSH_SMSG_STDOUT_DATA,
-        sub { syswrite STDOUT, $_[1]->get_str });
-    $ssh->register_handler(SSH_SMSG_STDERR_DATA,
-        sub { syswrite STDERR, $_[1]->get_str });
-    $ssh->register_handler(SSH_SMSG_EXITSTATUS, sub {});
-
-    $ssh->_start_interactive(0);
-
-    $ssh->_disconnect;
-}
-
-sub _start_interactive {
-    my $ssh = shift;
-    my($sent_stdin) = @_;
-
-    $ssh->debug("Entering interactive session.");
-
-    my $h = $ssh->{client_handlers};
-
-    my $s = IO::Select->new;
-    $s->add($ssh->{session}{sock});
-    $s->add(\*STDIN) unless $sent_stdin;
-
-    CLOOP:
-    while (1) {
-        my @ready = $s->can_read;
-        for my $a (@ready) {
-            if ($a == $ssh->{session}{sock}) {
-                my $buf;
-                sysread $a, $buf, 8192;
-                ($buf) = $buf =~ /(.*)/s;  ## Untaint data. Anything allowed.
-                $ssh->incoming_data->append($buf);
-            }
-            elsif ($a == \*STDIN) {
-                my $buf;
-                sysread STDIN, $buf, 8192;
-                ($buf) = $buf =~ /(.*)/s;  ## Untaint data. Anything allowed.
-                my $packet = $ssh->packet_start(SSH_CMSG_STDIN_DATA);
-                $packet->put_str($buf);
-                $packet->send;
-            }
-        }
-
-        while (my $packet = Net::SSH::Perl::Packet->read_poll($ssh)) {
-            if (my $code = $h->{ $packet->type }) {
-                $code->($ssh, $packet);
-            }
-            else {
-                $ssh->debug(sprintf
-                    "Warning: ignoring packet of type %d", $packet->type);
-            }
-
-            last CLOOP if $packet->type == SSH_SMSG_EXITSTATUS;
-        }
-    }
-
-    my $packet = $ssh->packet_start(SSH_CMSG_EXIT_CONFIRMATION);
-    $packet->send;
-}
+sub cmd { }
+sub shell { }
 
 sub incoming_data {
     my $ssh = shift;
@@ -586,19 +319,46 @@ sub incoming_data {
     $ssh->{session}{incoming_data};
 }
 
-sub set_cipher {
+sub session_id {
     my $ssh = shift;
-    my $ciph = shift;
-    $ssh->{session}{receive} = Net::SSH::Perl::Cipher->new($ciph, @_);
-    $ssh->{session}{send} = Net::SSH::Perl::Cipher->new($ciph, @_);
+    $ssh->{session}{id} = shift if @_;
+    $ssh->{session}{id};
 }
 
-sub send_cipher { $_[0]->{session}{send} }
-sub receive_cipher { $_[0]->{session}{receive} }
-sub session_key { $_[0]->{session}{key} }
-sub session_id { $_[0]->{session}{id} }
-
 sub packet_start { Net::SSH::Perl::Packet->new($_[0], type => $_[1]) }
+
+sub check_host_key {
+    my $ssh = shift;
+    my($key, $host, $u_hostfile, $s_hostfile) = @_;
+    $host ||= $ssh->{host};
+    $u_hostfile ||= $ssh->{config}->get('user_known_hosts');
+    $s_hostfile ||= $ssh->{config}->get('global_known_hosts');
+
+    my $status = _check_host_in_hostfile($host, $u_hostfile, $key);
+    unless (defined $status && $status == HOST_OK) {
+        $status = _check_host_in_hostfile($host, $s_hostfile, $key);
+    }
+
+    if ($status == HOST_OK) {
+        $ssh->debug("Host '$host' is known and matches the host key.");
+    }
+    elsif ($status == HOST_NEW) {
+        if ($ssh->{config}->get('interactive')) {
+            my $prompt =
+qq(The authenticity of host '$host' can't be established.
+Key fingerprint is @{[ $key->fingerprint ]}.
+Are you sure you want to continue connecting (yes/no)?);
+            unless (_read_yes_or_no($prompt, "yes")) {
+                croak "Aborted by user!";
+            }
+        }
+        $ssh->debug("Permanently added '$host' to the list of known hosts.");
+        _add_host_to_hostfile($host, $u_hostfile, $key);
+    }
+    else {
+        croak "Host key for '$host' has changed!";
+    }
+}
 
 1;
 __END__
@@ -617,8 +377,7 @@ Net::SSH::Perl - Perl client Interface to SSH
 =head1 DESCRIPTION
 
 I<Net::SSH::Perl> is an all-Perl module implementing an SSH client.
-It implements the SSH1 protocol; SSH2 functionality will come at
-some point in the future.
+It is compatible with both the SSH1 and SSH2 protocols.
 
 I<Net::SSH::Perl> enables you to simply and securely execute commands
 on remote machines, and receive the STDOUT, STDERR, and exit status
@@ -630,7 +389,7 @@ of the SSH protocol, and makes use of external Perl libraries (in
 the Crypt:: family of modules) to handle encryption of all data sent
 across the insecure network. It can also read your existing SSH
 configuration files (F</etc/ssh_config>, etc.), RSA identity files,
-known hosts files, etc.
+DSA identity files, known hosts files, etc.
 
 One advantage to using I<Net::SSH::Perl> over wrapper-style
 implementations of ssh clients is that it saves on process
@@ -648,6 +407,17 @@ I<Net::SSH::Perl> has built-in support for the authentication
 protocols, so there's no longer any hassle of communicating with
 any external processes.
 
+The SSH2 protocol support (present in I<Net::SSH::Perl> as of version
+1.00) is compatible with the SSH2 implementation in OpenSSH, and should
+also be fully compatible with the "official" SSH implementation. If
+you find an SSH2 implementation that is not compatible with
+I<Net::SSH::Perl>, please let me know (email address down in
+I<AUTHOR & COPYRIGHTS>); it turns out that some SSH2 implementations
+have subtle differences from others. 3DES and Blowfish ciphers are
+currently supported for SSH2 encryption, and integrity checking is
+performed by either the hmac-sha1 or hmac-md5 algorithms. Compression,
+if requested, is currently limited to Zlib.
+
 =head1 BASIC USAGE
 
 Usage of I<Net::SSH::Perl> is very simple.
@@ -661,13 +431,51 @@ I<new> accepts the following named parameters in I<%params>:
 
 =over 4
 
+=item * protocol
+
+The protocol you wish to use for the connection: should be either
+C<2>, C<1>, C<'1,2'> or C<'2,1'>. The first two say, quite simply,
+"only use this version of the protocol" (SSH2 or SSH1, respectively).
+The latter two specify that either protocol can be used, but that
+one protocol (the first in the comma-separated list) is preferred
+over the other.
+
+For this reason, it's "safer" to use the latter two protocol
+specifications, because they ensure that either way, you'll be able
+to connect; if your server doesn't support the first protocol listed,
+the second will be used. (Presumably your server will support at
+least one of the two protocols. :)
+
+The default value is C<'1,2'>, for compatibility with OpenSSH; this
+means that the client will use SSH1 if the server supports SSH1.
+Of course, you can always override this using a user/global
+configuration file, or through using this constructor argument.
+
 =item * cipher
 
 Specifies the name of the encryption cipher that you wish to
 use for this connection. This must be one of the supported
-ciphers (currently, I<IDEA>, I<DES>, I<DES3>, and I<Blowfish>);
-specifying an unsupported cipher is a fatal error. The default
-cipher is I<IDEA>.
+ciphers; specifying an unsupported cipher will give you an error
+when you enter algorithm negotiation (in either SSH1 or SSH2).
+
+In SSH1, the supported cipher names are I<IDEA>, I<DES>, I<DES3>,
+and I<Blowfish>; in SSH2, the supported ciphers are I<arcfour>,
+I<blowfish-cbc>, and I<3des-cbc>.
+
+The default SSH1 cipher is I<IDEA>; the default SSH2 cipher is
+I<3des-cbc>.
+
+=item * ciphers
+
+Like I<cipher>, this is a method of setting the cipher you wish to
+use for a particular SSH connection; but this corresponds to the
+I<Ciphers> configuration option, where I<cipher> corresponds to
+I<Cipher>. This also applies only in SSH2.
+
+This should be a comma-separated list of SSH2 cipher names; the list
+of cipher names is listed above in I<cipher>.
+
+This defaults to I<3des-cbc,blowfish-cbc,arcfour>.
 
 =item * port
 
@@ -708,13 +516,15 @@ be set to true. Otherwise it defaults to false.
 
 =item * identity_files
 
-A list of RSA identity files to be used in RSA authentication.
+A list of RSA/DSA identity files to be used in RSA/DSA authentication.
 The value of this argument should be a reference to an array of
 strings, each string identifying the location of an identity
-file.
+file. Each identity file will be tested against the server until
+the client finds one that authenticates successfully.
 
 If you don't provide this, RSA authentication defaults to using
-"$ENV{HOME}/.ssh/identity".
+F<$ENV{HOME}/.ssh/identity>, and DSA authentication defaults to
+F<$ENV{HOME}/.ssh/id_dsa>.
 
 =item * compression
 
@@ -735,6 +545,9 @@ Specifies the compression level to use if compression is enabled
 (note that you must provide both the I<compression> and
 I<compression_level> arguments to set the level; providing only
 this argument will not turn on encryption).
+
+This setting is only applicable to SSH1; the compression level for
+SSH2 Zlib compression is always set to 6.
 
 The default value is 6.
 
@@ -787,11 +600,10 @@ command.
 If I<$stdin> is provided, it's supplied to the remote command
 I<$cmd> on standard input.
 
-NOTE: the ssh protocol does not easily support (so far as I
-know) running multiple commands per connection, unless those
-commands are chained together so that the remote shell
-can evaluate them. Because of this, a new socket connection
-is created each time you call I<cmd>, and disposed of
+NOTE: the SSH1 protocol does not support running multiple commands
+per connection, unless those commands are chained together so that
+the remote shell can evaluate them. Because of this, a new socket
+connection is created each time you call I<cmd>, and disposed of
 afterwards. In other words, this code:
 
     my $ssh = Net::SSH::Perl->new("host1");
@@ -800,13 +612,12 @@ afterwards. In other words, this code:
     $ssh->cmd("foo");
     $ssh->cmd("bar");
 
-will actually connect to the I<sshd> on the first
-invocation of I<cmd>, then disconnect; then connect
-again on the second invocation of I<cmd>, then disconnect
-again.
+will actually connect to the I<sshd> on the first invocation of
+I<cmd>, then disconnect; then connect again on the second
+invocation of I<cmd>, then disconnect again.
 
-This is less than ideal, obviously. Future version of
-I<Net::SSH::Perl> may find ways around that.
+Note that this does I<not> apply to the SSH2 protocol. SSH2 fully
+supports running more than one command over the same connection.
 
 =head2 $ssh->shell
 
@@ -855,17 +666,29 @@ that value to the caller. It does the same for STDERR packets,
 and for the process exit status. (See the docs for I<cmd>).
 
 You can, however, override that default behavior, and instead
-process the packets yourself as they come in. You do this by
-calling the I<register_handler> method and giving it a
-packet type I<$packet_type> and a subroutine reference
-I<$subref>. Your subroutine will receive as arguments the
-I<Net::SSH::Perl> object (with an open connection to the sshd),
-and a I<Net::SSH::Perl::Packet> object, which represents the
-packet read from the server.
+process the data itself as it is sent to the client. You do this
+by calling the I<register_handler> method and setting up handlers
+to be called at specific times.
 
-I<$packet_type> should be an integer constant; you can import
-the list of constants into your namespace by explicitly loading
-the I<Net::SSH::Perl::Constants> module:
+The behavior of the I<register_handler> method differs between
+the I<Net::SSH::Perl> SSH1 and SSH2 implementations. This is so
+because of the differences between the protocols (all 
+client-server communications in SSH2 go through the channel
+mechanism, which means that input packets are processed
+differently).
+
+=over 4
+
+=item * SSH1 Protocol
+
+In the SSH1 protocol, you should call I<register_handler> with two
+arguments: a packet type I<$packet_type> and a subroutine reference
+I<$subref>. Your subroutine will receive as arguments the
+I<Net::SSH::Perl::SSH1> object (with an open connection to the
+ssh3), and a I<Net::SSH::Perl::Packet> object, which represents the
+packet read from the server. I<$packet_type> should be an integer
+constant; you can import the list of constants into your namespace
+by explicitly loading the I<Net::SSH::Perl::Constants> module:
 
     use Net::SSH::Perl::Constants qw( :msg );
 
@@ -889,6 +712,45 @@ each datatype that you may need to read from a packet.
 
 Take a look at F<eg/remoteinteract.pl> for an example of interacting
 with a remote command through the use of I<register_handler>.
+
+=item * SSH2 Protocol
+
+In the SSH2 protocol, you call I<register_handler> with two
+arguments: a string identifying the type of handler you wish to
+create, and a subroutine reference. The "string" should be, at
+this point, either C<stdout> or C<stderr>; any other string will
+be silently ignored. C<stdout> denotes that you wish to handle
+STDOUT data sent from the server, and C<stderr> that you wish
+to handle STDERR data.
+
+Your subroutine reference will be passed two arguments:
+a I<Net::SSH::Perl::Channel> object that represents the open
+channel on which the data was sent, and a I<Net::SSH::Perl::Buffer>
+object containing data read from the server.
+
+This illustrates the two main differences between the SSH1 and
+SSH2 implementations. The first difference is that, as mentioned
+above, all communication between server and client is done through
+channels, which are built on top of the main connection between
+client and server. Multiple channels are multiplexed over the
+same connection. The second difference is that, in SSH1, you are
+processing the actual packets as they come in; in SSH2, the packets
+have already been processed somewhat, and their contents stored in
+buffers--you are processing those buffers.
+
+The above example (the I<I received this> example) of using
+I<register_handler> in SSH1 would look like this in SSH2:
+
+    $ssh->register_handler("stdout", sub {
+        my($channel, $buffer) = @_;
+        print "I received this: ", $buffer->bytes;
+    });
+
+As you can see, it's quite similar to the form used in SSH1,
+but with a few important differences, due to the differences
+mentioned above between SSH1 and SSH2.
+
+=back
 
 =head1 ADVANCED METHODS
 
@@ -933,63 +795,6 @@ presumably asked for it.
 This data "belongs" to the underlying packet layer in
 I<Net::SSH::Perl::Packet>. Unless you really know what you're
 doing you probably don't want to disturb that data.
-
-=head2 $ssh->set_cipher($cipher_name)
-
-Sets the cipher for the SSH session I<$ssh> to I<$cipher_name>
-(which must be a valid cipher name), and turns on encryption
-for that session.
-
-=head2 $ssh->send_cipher
-
-Returns the "send" cipher object. This is the object that encrypts
-outgoing data.
-
-If it's not defined, encryption is not turned on for the session.
-
-=head2 $ssh->receive_cipher
-
-Returns the "receive" cipher object. This is the object that
-decrypts incoming data.
-
-If it's not defined, encryption is not turned on for the session.
-
-NOTE: the send and receive ciphers and two I<different> objects,
-each with its own internal state (initialization vector, in
-particular). Thus they cannot be interchanged.
-
-=head2 $ssh->compression([ $level ])
-
-Without arguments, returns the current compression level for the
-session. If given an argument I<$level>, sets the compression level
-and turns on compression for the session.
-
-Note that this should I<not> be used to turn compression off. In fact,
-I don't think there's a way to turn compression off. But in other
-words, don't try giving this method a value of 0 and expect that to
-turn off compression. It won't.
-
-If the return value of this method is undefined or 0, compression
-is turned off.
-
-=head2 $ssh->send_compression
-
-Returns the "send" compression object/stream. This is a
-I<Compress::Zlib> deflation (compression) stream; we keep it around
-because it contains state that needs to be used throughout the
-session.
-
-=head2 $ssh->receive_compression
-
-Returns the "receive" compression object/stream. This is a
-I<Compress::Zlib> inflation (uncompression) stream; we keep it
-around because it contains state that needs to be used throughout
-the session.
-
-=head2 $ssh->session_key
-
-Returns the session key, which is simply 32 bytes of random
-data and is used as the encryption/decryption key.
 
 =head2 $ssh->session_id
 

@@ -1,11 +1,17 @@
-$Id: ToDo,v 1.12 2001/03/20 18:03:32 btrott Exp $
+$Id: ToDo,v 1.14 2001/05/02 23:17:14 btrott Exp $
 
-Is there any way to use Rhosts-RSA auth without running as root?
+Add more tests to the test suite; add SSH2 tests.
 
-Add more tests to the test suite.
+Fixes to SSH2 implementation:
+    * get rid of dummy shell channel (if possible)
+    * more documentation
+    * anything currently marked XXX in the code
 
-Can we run multiple commands in the same SSH session? Perhaps open
-up a shell on the remote machine? The trouble with this is that
-it requires parsing the STDOUT data for the command line prompt.
+Switch over to using Crypt::RSA for SSH1 RSA implementation.
 
-Add SSH2 implementation.
+Switch completely to Math::Pari.
+
+Use non-blocking connect, like IO::Socket, to implement a
+Timeout.
+
+A proper scp client.

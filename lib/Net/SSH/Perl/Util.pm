@@ -1,23 +1,9 @@
-# $Id: Util.pm,v 1.12.2.2 2001/04/20 17:45:49 btrott Exp $
+# $Id: Util.pm,v 1.22 2001/05/02 23:06:47 btrott Exp $
 
 package Net::SSH::Perl::Util;
 use strict;
 
-use Net::SSH::Perl::Packet;
-use Net::SSH::Perl::Buffer;
-use Net::SSH::Perl::Constants qw( :hosts PRIVATE_KEY_ID_STRING
-    SSH_CMSG_AUTH_RSA_RESPONSE );
-use Net::SSH::Perl::Cipher;
-use Carp qw( croak );
-
-use vars qw( $VERSION );
-use Digest::MD5 qw( md5 );
-use Math::GMP;
-use String::CRC32;
-
-use vars qw( @EXPORT_OK %EXPORT_TAGS );
-use Exporter;
-use base qw( Exporter );
+use vars qw( @EXPORT_OK %FUNC_TO_MOD %EXPORT_TAGS );
 
 @EXPORT_OK = qw(
     _crc32
@@ -28,298 +14,66 @@ use base qw( Exporter );
     _load_private_key
     _load_public_key
     _save_private_key
+    bitsize
+    bin2mp
+    mp2bin
     _respond_to_rsa_challenge
     _rsa_public_encrypt
     _rsa_private_decrypt
     _read_passphrase
+    _read_yes_or_no
 );
+
 %EXPORT_TAGS = (
     hosts    => [ qw( _check_host_in_hostfile _add_host_to_hostfile ) ],
     rsa      => [ qw( _rsa_public_encrypt _rsa_private_decrypt
                       _respond_to_rsa_challenge ) ],
-    mp       => [ qw( _compute_session_id _mp_linearize ) ],
+    ssh1mp   => [ qw( _compute_session_id _mp_linearize ) ],
+    ssh2mp   => [ qw( bitsize bin2mp mp2bin ) ],
     authfile => [ qw( _load_public_key _load_private_key _save_private_key ) ],
     all      => [ @EXPORT_OK ],
 );
 
-## crc32 checksum.
-sub _crc32 {
-    crc32($_[0], 0xFFFFFFFF) ^ 0xFFFFFFFF;
-}
+%FUNC_TO_MOD = (
+    _crc32                    => 'SSH1Misc',
+    _compute_session_id       => 'SSH1MP',
+    _mp_linearize             => 'SSH1MP',
+    _check_host_in_hostfile   => 'Hosts',
+    _add_host_to_hostfile     => 'Hosts',
+    _load_private_key         => 'Authfile',
+    _load_public_key          => 'Authfile',
+    _save_private_key         => 'Authfile',
+    bitsize                   => 'SSH2MP',
+    bin2mp                    => 'SSH2MP',
+    mp2bin                    => 'SSH2MP',
+    _respond_to_rsa_challenge => 'RSA',
+    _rsa_public_encrypt       => 'RSA',
+    _rsa_private_decrypt      => 'RSA',
+    _read_passphrase          => 'Term',
+    _read_yes_or_no           => 'Term',
+);
 
-## mp utility functions.
-sub _compute_session_id {
-    my($check_bytes, $host, $public) = @_;
-    my $id;
-    $id .= _mp_linearize($host->{n});
-    $id .= _mp_linearize($public->{n});
-    $id .= $check_bytes;
-    md5($id);
-}
+sub import {
+    my $class = shift;
+    my $callpack = caller;
 
-sub _mp_linearize {
-    my($p, $l) = @_;
-    $l ||= 0;
-    my $base = Math::GMP->new(256);
-    my $res = '';
-    {
-        my $r = $p % $base;
-        my $d = Math::GMP->new($p-$r) / $base;
-        $res = chr($r) . $res;
-        if ($d >= $base) {
-            $p = $d;
-            redo;
+    my @to_export;
+    my @args = @_;
+    for my $item (@args) {
+        push @to_export,
+            $item =~ s/^:// ? @{ $EXPORT_TAGS{$item} } : $item;
+    }
+
+    my %loaded;
+    no strict 'refs';
+    for my $func (@to_export) {
+        my $mod = join '::', __PACKAGE__, $FUNC_TO_MOD{$func};
+        unless ($loaded{$mod}) {
+            (my $lib = $mod . ".pm") =~ s!::!/!g;
+            require $lib;
         }
-        elsif ($d != 0) {
-            $res = chr($d) . $res;
-        }
+        *{"${callpack}::$func"} = \&{"${mod}::$func"};
     }
-    $res = "\0" x ($l-length($res)) . $res
-        if length($res) < $l;
-    $res;
-}
-
-## host utility functions.
-sub _check_host_in_hostfile {
-    my($host, $host_file, $key) = @_;
-    local *FH;
-    open FH, $host_file or return HOST_NEW; # ssh returns HOST_NEW if
-                                            # the host file can't be opened
-    local($_, $/);
-    $/ = "\n";
-    my($status, $match, $hosts) = (HOST_NEW);
-    while (<FH>) {
-        chomp;
-        my($hosts, $bits, $e, $n) = split /\s+/;
-        for my $h (split /,/, $hosts) {
-            if ($h eq $host) {
-                if ($key->{bits} == $bits &&
-                  "$key->{e}" eq "$e" &&
-                  "$key->{n}" eq "$n") {
-                    close FH;
-                    return HOST_OK;
-                }
-                $status = HOST_CHANGED;
-            }
-        }
-    }
-    $status;
-}
-
-sub _add_host_to_hostfile {
-    my($host, $host_file, $key) = @_;
-    open FH, ">>" . $host_file or croak "Can't write to $host_file: $!";
-    print FH join(' ', $host, $key->{bits}, $key->{e}, $key->{n}), "\n";
-    close FH or croak "Can't close $host_file: $!";
-}
-
-## other.
-
-sub _load_public_key {
-    my($key_file) = @_;
-
-    local *FH;
-    open FH, $key_file or croak "Can't open $key_file: $!";
-    my $c = do { local $/; <FH> };
-    close FH or die "Can't close $key_file: $!";
-    ($c) = $c =~ /(.*)/s;  ## Untaint data. Anything is allowed.
-
-    my $buffer = Net::SSH::Perl::Buffer->new;
-    $buffer->append($c);
-
-    my $id = $buffer->bytes(0, length(PRIVATE_KEY_ID_STRING), "");
-    croak "Bad key file $key_file." unless $id eq PRIVATE_KEY_ID_STRING;
-    $buffer->bytes(0, 1, "");
-
-    $buffer->get_char;
-    $buffer->get_int32;
-
-    my $key = {};
-    $key->{bits} = $buffer->get_int32;
-    $key->{n} = $buffer->get_mp_int;
-    $key->{e} = $buffer->get_mp_int;
-
-    my $comment = $buffer->get_str;
-
-    wantarray ? ($key, $comment) : $key;
-}
-
-sub _load_private_key {
-    my($key_file, $passphrase) = @_;
-    $passphrase ||= '';
-
-    local *FH;
-    open FH, $key_file or croak "Can't open $key_file: $!";
-    my $c = do { local $/; <FH> };
-    close FH or die "Can't close $key_file: $!";
-    ($c) = $c =~ /(.*)/s;  ## Untaint data. Anything is allowed.
-
-    my $buffer = Net::SSH::Perl::Buffer->new;
-    $buffer->append($c);
-
-    my $id = $buffer->bytes(0, length(PRIVATE_KEY_ID_STRING), "");
-    croak "Bad key file $key_file." unless $id eq PRIVATE_KEY_ID_STRING;
-    $buffer->bytes(0, 1, "");
-
-    my $cipher_type = $buffer->get_int8;
-    $buffer->get_int32;  ## Reserved data.
-
-    my $key = {};
-    $key->{bits} = $buffer->get_int32;
-    $key->{n} = $buffer->get_mp_int;
-    $key->{e} = $buffer->get_mp_int;
-
-    my $comment = $buffer->get_str;
-
-    my $cipher_name = Net::SSH::Perl::Cipher::name($cipher_type);
-    unless (Net::SSH::Perl::Cipher::supported($cipher_type)) {
-        croak sprintf "Unsupported cipher '%s' used in key file '%s'",
-            $cipher_name, $key_file;
-    }
-
-    my $ciph =
-        Net::SSH::Perl::Cipher->new_from_key_str($cipher_name, $passphrase);
-    my $decrypted = $ciph->decrypt($buffer->bytes($buffer->offset));
-    $buffer->empty;
-    $buffer->append($decrypted);
-
-    my $check1 = ord $buffer->get_char;
-    my $check2 = ord $buffer->get_char;
-    if ($check1 != ord($buffer->get_char) ||
-        $check2 != ord($buffer->get_char)) {
-        croak "Bad passphrase supplied for key file $key_file";
-    }
-
-    $key->{d} = $buffer->get_mp_int;
-    $key->{u} = $buffer->get_mp_int;
-    $key->{p} = $buffer->get_mp_int;
-    $key->{q} = $buffer->get_mp_int;
-
-    wantarray ? ($key, $comment) : $key;
-}
-
-sub _save_private_key {
-    my($key_file, $key, $passphrase, $comment) = @_;
-    $passphrase ||= '';
-
-    my $cipher_type = $passphrase eq '' ? 'None' : 'DES3';
-
-    my $buffer = Net::SSH::Perl::Buffer->new;
-    my($check1, $check2);
-    $buffer->put_int8($check1 = int rand 255);
-    $buffer->put_int8($check2 = int rand 255);
-    $buffer->put_int8($check1);
-    $buffer->put_int8($check2);
-
-    $buffer->put_mp_int($key->{d});
-    $buffer->put_mp_int($key->{u});
-    $buffer->put_mp_int($key->{p});
-    $buffer->put_mp_int($key->{q});
-
-    $buffer->put_int8(0)
-        while $buffer->length % 8;
-
-    my $encrypted = Net::SSH::Perl::Buffer->new;
-    $encrypted->put_chars(PRIVATE_KEY_ID_STRING);
-    $encrypted->put_int8(0);
-    $encrypted->put_int8(Net::SSH::Perl::Cipher::id($cipher_type));
-    $encrypted->put_int32(0);
-
-    $encrypted->put_int32($key->{bits});
-    $encrypted->put_mp_int($key->{n});
-    $encrypted->put_mp_int($key->{e});
-    $encrypted->put_str($comment || '');
-
-    my $cipher =
-        Net::SSH::Perl::Cipher->new_from_key_str($cipher_type, $passphrase);
-    $encrypted->append( $cipher->encrypt($buffer->bytes) );
-
-    local *FH;
-    open FH, ">$key_file" or croak "Can't open $key_file: $!";
-    print FH $encrypted->bytes;
-    close FH or croak "Can't close $key_file: $!";
-}
-
-sub _read_passphrase {
-    my($prompt) = @_;
-    print $prompt;
-    require Term::ReadKey;
-    Term::ReadKey->import;
-    ReadMode('noecho');
-    chomp(my $pwd = ReadLine(0));
-    ReadMode('restore');
-    print "\n";
-    $pwd;
-}
-
-## rsa utility functions.
-
-sub _respond_to_rsa_challenge {
-    my($ssh, $challenge, $key) = @_;
-
-    $challenge = _rsa_private_decrypt($challenge, $key);
-    my $buf = _mp_linearize($challenge, 32);
-    my $response = md5($buf, $ssh->session_id);
-
-    $ssh->debug("Sending response to host key RSA challenge.");
-
-    my $packet = $ssh->packet_start(SSH_CMSG_AUTH_RSA_RESPONSE);
-    $packet->put_chars($response);
-    $packet->send;
-}
-
-sub _rsa_public_encrypt {
-    my($input, $key) = @_;
-    my $bits = Math::GMP::sizeinbase_gmp($input, 2);
-    my $input_len = int(($bits + 7) / 8);
-    my $len = int(($key->{bits} + 7) / 8);
-
-    my $aux = Math::GMP->new(2);
-    for my $i (2..$len-$input_len-2) {
-        my $byte = 0;
-        {
-            $byte = int rand 128;
-            redo if $byte == 0;
-        }
-        $aux = Math::GMP::mul_2exp_gmp($aux, 8);
-        Math::GMP::add_ui_gmp($aux, $byte);
-    }
-    $aux = Math::GMP::mul_2exp_gmp($aux, 8 * ($input_len + 1));
-    $aux = Math::GMP->new($aux + $input);
-
-    _rsa_public($aux, $key);
-}
-
-sub _rsa_public {
-    my($input, $key) = @_;
-    Math::GMP::powm_gmp($input, $key->{e}, $key->{n});
-}
-
-sub _rsa_private_decrypt {
-    my($input, $key) = @_;
-    my $output = _rsa_private($input, $key);
-    my $len = int(($key->{bits} + 7) / 8);
-    my $res = _mp_linearize($output, $len);
-    unless (vec($res, 0, 8) == 0 && vec($res, 1, 8) == 2) {
-        croak "Bad result from rsa_private_decrypt";
-    }
-    my $i;
-    for ($i=2; $i<$len && vec($res, $i, 8); $i++) { }
-    Math::GMP::mod_2exp_gmp($output, 8 * ($len - $i - 1));
-}
-
-sub _rsa_private {
-    my($input, $key) = @_;
-    my($dp, $dq, $p2, $q2, $k);
-
-    $dp = $key->{d} % ($key->{p}-1);
-    $dq = $key->{d} % ($key->{q}-1);
-
-    $p2 = Math::GMP::powm_gmp($input % $key->{p}, $dp, $key->{p});
-    $q2 = Math::GMP::powm_gmp($input % $key->{q}, $dq, $key->{q});
-
-    $k = (($q2 - $p2) * $key->{u}) % $key->{q};
-    $p2 + ($key->{p} * $k);
 }
 
 1;
@@ -338,6 +92,15 @@ Net::SSH::Perl::Util - Shared utility functions
 I<Net::SSH::Perl::Util> contains a variety of exportable utility
 functions used by the various I<Net::SSH::Perl> modules. These
 range from hostfile routines, to RSA encryption routines, etc.
+
+None of the routines are actually stored in the I<Util> module
+itself; they are contained within sub-modules that are loaded
+on demand by the parent I<Util> module, which contains a
+table mapping function names to sub-module names. The "on
+demand" is done by including either a function name, or a tag
+name (see below), in your I<use> line. I<Net::SSH::Perl::Util>
+will take care of loading the sub-module and importing the
+requested function(s) into your namespace.
 
 The routines are exportable by themselves, ie.
 
@@ -363,17 +126,30 @@ Routines associated with RSA encryption, decryption, and
 authentication. Contains C<_rsa_public_encrypt>,
 C<_rsa_private_decrypt>, and C<_respond_to_rsa_challenge>.
 
-=item * mp
+=item * ssh1mp
 
 Routines associated with multiple-precision integers and the
 generation and manipulation of same. Contains C<_mp_linearize>
 and C<_compute_session_id>.
 
+Because the SSH1 implementation uses I<Math::GMP> for its
+big integers, the functions in I<ssh1mp> all deal with
+I<Math::GMP> objects.
+
+=item * ssh2mp
+
+Routines associated with SSH2 big integers, which are
+I<Math::Pari> objects. Contains C<bitsize>, C<bin2mp>, and
+C<mp2bin>.
+
 =item * authfile
 
-Routines associated with loading of RSA SSH keys (both public
+Routines associated with loading of RSA SSH1 keys (both public
 and private) from keyfiles. Contains C<_load_public_key>,
 C<_load_private_key>, and C<_save_private_key>.
+
+Note that this interface is deprecated in favor of the
+I<Net::SSH::Perl::Key> interface to loading keys.
 
 =item * all
 
@@ -390,6 +166,8 @@ internally to do its magic, with the caveat that the "init state"
 of the checksum is C<0xFFFFFFFF>, and the result is xor-ed with
 C<0xFFFFFFFF>.
 
+This is used in SSH1.
+
 =head2 _compute_session_id($check_bytes, $host_key, $public_key)
 
 Given the check bytes (I<$check_bytes>) and the server host and
@@ -397,29 +175,51 @@ public keys (I<$host_key> and I<$public_key>, respectively),
 computes the session ID that is then used to uniquely identify
 the session between the server and client.
 
-I<$host_key> and I<$public_key> should be hash references with
-three keys: I<bits>, I<n>, and I<e>. I<n> and I<e> should be
-multiple-precision integers (I<Math::GMP> objects).
+I<$host_key> and I<$public_key> should be I<Net::SSH::Perl::Key::RSA>
+objects; I<$check_bytes> is an 8-byte string.
 
 Returns the session ID.
 
 =head2 _mp_linearize($int)
 
 Converts a multiple-precision integer I<$int> into a byte string.
+I<$int> should be a I<Math::GMP> object.
 
 Returns the byte string.
+
+=head2 bitsize($int)
+
+Returns the number of bits in I<$int>, which should be a
+I<Math::Pari> object.
+
+=head2 bin2mp($octet_string)
+
+Treats I<$octet_string> as a representation of a big integer in
+base 256, and converts the string into that integer. Returns the
+integer, a I<Math::Pari> object.
+
+=head2 mp2bin($int)
+
+Converts I<$int>, a I<Math::Pari> object, into an octet string
+(ie. the reverse of C<bin2mp>). Returns the octet string.
 
 =head2 _check_host_in_hostfile($host, $host_file, $host_key)
 
 Looks up I<$host> in I<$host_file> and checks the stored host
 key against I<$host_key> to determine the status of the host.
 
+I<$host_key> should be an object of some subclass of
+I<Net::SSH::Perl::Key>; in particular, it must support the
+I<extract_public> class method and the I<equal> object
+method.
+
 If the host is not found, returns HOST_NEW.
 
 If the host is found, and the keys match, returns HOST_OK.
 
 If the host is found, and the keys don't match, returns
-HOST_CHANGED, which generally indicates a problem.
+HOST_CHANGED, which generally indicates a security problem
+(ie. man-in-the-middle attack).
 
 =head2 _add_host_to_hostfile($host, $host_file, $host_key)
 
@@ -427,10 +227,14 @@ Opens up the known hosts file I<$host_file> and adds an
 entry for I<$host> with host key I<$host_key>. Dies if
 I<$host_file> can't be opened for writing.
 
+I<$host_key> should be an object of some subclass of
+I<Net::SSH::Perl::Key>; in particular, it must support the
+I<dump_public> object method.
+
 =head2 _load_public_key($key_file)
 
 Given the location of a public key file I<$key_file>, reads
-the public key from that file.
+the RSA public key from that file.
 
 If called in list context, returns the key and the comment
 associated with the key. If called in scalar context,
@@ -440,10 +244,7 @@ Dies if: the key file I<$key_file> can't be opened for
 reading; or the key file is "bad" (the ID string in the
 file doesn't match the PRIVATE_KEY_ID_STRING constant).
 
-The key returned is in the form of a public key--a hash
-reference with three keys: I<bits>, I<n>, and I<e>. I<n>
-and I<e> and multiple-precision integers (I<Math::GMP>
-objects).
+Returns the RSA key (a I<Net::SSH::Perl::Key::RSA object).
 
 =head2 _load_private_key($key_file [, $passphrase ])
 
@@ -463,15 +264,12 @@ doesn't match the PRIVATE_KEY_ID_STRING constant); the
 file is encrypted using an unsupported encryption cipher;
 or the passphrase I<$passphrase> is incorrect.
 
-The key returned is in the form of a private key--a hash
-reference with seven keys: I<bits>, I<n>, I<e>, I<d>,
-I<u>, I<p>, and I<q>. All but I<bits> are multiple-precision
-integers (I<Math::GMP> objects).
+Returns the RSA key (a I<Net::SSH::Perl::Key::RSA object).
 
 =head2 _save_private_key($key_file, $key, [ $passphrase [, $comment ]])
 
 Given a private key I<$key>, and the location of the private
-key file I<$key_file>, writes out an SSH RSA key file to
+key file I<$key_file>, writes out an SSH1 RSA key file to
 I<$key_file>.
 
 If I<$passphrase> is supplied, the private key portion of
@@ -486,15 +284,20 @@ inserted into the key file and can be used by clients when
 prompting for the passphrase upon loading the private key,
 etc. It should be somewhat descriptive of this key file.
 
-I<$key> should be a hash reference with seven keys: I<bits>,
-I<n>, I<e>, I<d>, I<u>, I<p>, and I<q>. All but I<bits> are
-multiple-precision integers (I<Math::GMP> objects).
+I<$key> should be a I<Net::SSH::Perl::Key::RSA> object.
 
 =head2 _read_passphrase($prompt)
 
 Uses I<Term::ReadKey> with echo off to read a passphrase,
 after issuing the prompt I<$prompt>. Echo is restored
 once the passphrase has been read.
+
+=head2 _read_yes_or_no($prompt)
+
+Issues the prompt I<$prompt>, which should be a yes/no
+question; then reads the response, and returns true if the
+response is yes (or rather, anything starting with 'y',
+case insensitive).
 
 =head2 _respond_to_rsa_challenge($ssh, $challenge, $key)
 

@@ -1,4 +1,4 @@
-# $Id: Blowfish.pm,v 1.8 2001/03/05 22:54:16 btrott Exp $
+# $Id: Blowfish.pm,v 1.13 2001/05/02 21:59:23 btrott Exp $
 
 package Net::SSH::Perl::Cipher::Blowfish;
 
@@ -23,20 +23,35 @@ BEGIN {
 
 sub new {
     my $class = shift;
-    my $key = shift;
-    my $blow = $BF_CLASS->new($key);
-    my $cbc = Net::SSH::Perl::Cipher::CBC->new($blow);
-    bless { cbc => $cbc }, $class;
+    my $ciph = bless { }, $class;
+    $ciph->init(@_) if @_;
+    $ciph;
+}
+
+sub keysize { 16 }
+sub blocksize { 8 }
+
+sub init {
+    my $ciph = shift;
+    my($key, $iv, $is_ssh2) = @_;
+    my $blow = $BF_CLASS->new(substr $key, 0, 16);
+    $ciph->{cbc} = Net::SSH::Perl::Cipher::CBC->new($blow,
+        $iv ? substr($iv, 0, 8) : undef);
+    $ciph->{is_ssh2} = defined $is_ssh2 ? $is_ssh2 : 0;
 }
 
 sub encrypt {
     my($ciph, $text) = @_;
-    _swap_bytes($ciph->{cbc}->encrypt(_swap_bytes($text)));
+    $ciph->{is_ssh2} ?
+        $ciph->{cbc}->encrypt($text) :
+        _swap_bytes($ciph->{cbc}->encrypt(_swap_bytes($text)));
 }
 
 sub decrypt {
     my($ciph, $text) = @_;
-    _swap_bytes($ciph->{cbc}->decrypt(_swap_bytes($text)));
+    $ciph->{is_ssh2} ?
+        $ciph->{cbc}->decrypt($text) :
+        _swap_bytes($ciph->{cbc}->decrypt(_swap_bytes($text)));
 }
 
 sub _swap_bytes {
@@ -54,8 +69,8 @@ Net::SSH::Perl::Cipher::Blowfish - Wrapper for SSH Blowfish support
 
 =head1 SYNOPSIS
 
-    use Net::SSH::Cipher;
-    my $cipher = Net::SSH::Cipher->new('Blowfish', $key);
+    use Net::SSH::Perl::Cipher;
+    my $cipher = Net::SSH::Perl::Cipher->new('Blowfish', $key);
     print $cipher->encrypt($plaintext);
 
 =head1 DESCRIPTION
@@ -73,7 +88,7 @@ a very noticeable decrease in performance.
 The blowfish used here is in CBC filter mode with a key length
 of 32 bytes.
 
-SSH adds an extra wrinkle with respect to its blowfish algorithm:
+SSH1 adds an extra wrinkle with respect to its blowfish algorithm:
 before and after encryption/decryption, we have to swap the bytes
 in the string to be encrypted/decrypted. The byte-swapping is done
 four bytes at a time, and within each of those four-byte blocks
@@ -81,6 +96,9 @@ we reverse the bytes. So, for example, the string C<foobarba>
 turns into C<boofabra>. We swap the bytes in this manner in the
 string before we encrypt/decrypt it, and swap the
 encrypted/decrypted string again when we get it back.
+
+This byte-swapping is not done when Blowfish is used in the
+SSH2 protocol.
 
 =head1 AUTHOR & COPYRIGHTS
 

@@ -1,15 +1,42 @@
-$Id: Changes,v 1.29.2.3 2001/04/20 17:46:17 btrott Exp $
+$Id: Changes,v 1.32 2001/05/02 23:22:30 btrott Exp $
 
 Revision history for Net::SSH::Perl
 
-0.67  2001.04.05
+1.01  2001.05.02
+    - Added SSH2 support.
+    - Added Channel, ChannelMgr classes to manage open SSH2
+      channels.
+    - Added Key and subclasses Key::DSA, Key::RSA; managed
+      access to keys and keyfiles.
+    - Split Util functions into sub-modules that are loaded
+      on demand. Added more utility functions for SSH2 bigints,
+      etc. Deprecated _load_private_key, _save_private_key,
+      _load_public_key, in favor of usage of Net::SSH::Perl::Key
+      classes.
+    - Changed Constants implementation; don't use 'constant'
+      module, just keep constants in hash, then export them
+      in custom import method.
+    - Added eg/pssh-keygen, which has *almost* all of the
+      functionality in the OpenSSH ssh-keygen.
+    - Added Mac classes for MAC packet integrity.
+    - Added Cipher/RC4, an arcfour implementation (only for
+      SSH2).
+    - Added Kex and subclass for Diffie-Hellman Group 1.
+    - Buffer now works for both SSH1 and SSH2; different
+      mp_int representations.
+    - SSH1 implementation: now uses Net::SSH::Perl::Comp for
+      compression; uses Net::SSH::Perl::Key::RSA to hold RSA
+      keys; now lives in Net::SSH::Perl::SSH1 and is loaded on
+      demand; etc.
+
+0.67  2001.04.20
     - now use _mp_linearize in _rsa_private_decrypt.
     - fixed bug with sending large STDIN packets. The symptom was
       that, when trying to send STDIN packets larger than MAX_PACKET_SIZE,
       you'd get an error and the packet wouldn't be sent. Thanks to
       Chris Beatson (chris@neonova.net) for the spot and a patch.
     - fixed odd bug with _mp_linearize. Aaron Paetznick
-      (aaronp@@critd.com) pointed this out, and I could only
+      (aaronp@critd.com) pointed this out, and I could only
       reproduce it on his system. The symptoms were that encryption
       would not work, resulting in "Corrupted check bytes on input"
       messages after encryption was turned on. This was due to a

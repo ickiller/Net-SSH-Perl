@@ -1,4 +1,4 @@
-# $Id: IDEA.pm,v 1.4 2001/03/05 22:54:16 btrott Exp $
+# $Id: IDEA.pm,v 1.7 2001/05/02 21:59:33 btrott Exp $
 
 package Net::SSH::Perl::Cipher::IDEA;
 
@@ -12,10 +12,16 @@ use Crypt::IDEA;
 
 sub new {
     my $class = shift;
-    my $key = shift;
+    my $ciph = bless { }, $class;
+    $ciph->init(@_) if @_;
+    $ciph;
+}
+
+sub init {
+    my $ciph = shift;
+    my($key, $iv) = @_;
     my $idea = IDEA->new(substr $key, 0, 16);
-    my $cfb = Net::SSH::Perl::Cipher::CFB->new($idea);
-    bless { cfb => $cfb }, $class;
+    $ciph->{cfb} = Net::SSH::Perl::Cipher::CFB->new($idea, $iv);
 }
 
 sub encrypt {
@@ -37,8 +43,8 @@ Net::SSH::Perl::Cipher::IDEA - Wrapper for SSH IDEA support
 
 =head1 SYNOPSIS
 
-    use Net::SSH::Cipher;
-    my $cipher = Net::SSH::Cipher->new('IDEA', $key);
+    use Net::SSH::Perl::Cipher;
+    my $cipher = Net::SSH::Perl::Cipher->new('IDEA', $key);
     print $cipher->encrypt($plaintext);
 
 =head1 DESCRIPTION

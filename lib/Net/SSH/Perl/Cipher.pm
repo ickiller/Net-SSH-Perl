@@ -1,23 +1,29 @@
-# $Id: Cipher.pm,v 1.5 2001/03/12 19:02:17 btrott Exp $
+# $Id: Cipher.pm,v 1.10 2001/04/17 18:27:45 btrott Exp $
 
 package Net::SSH::Perl::Cipher;
 
 use strict;
 use Carp qw( croak );
-use Digest::MD5 qw( md5 );
 
-use vars qw( %CIPHERS %CIPH_REVERSE %SUPPORTED );
+use vars qw( %CIPHERS %CIPHERS_SSH2 %CIPH_REVERSE %SUPPORTED );
 BEGIN {
     %CIPHERS = (
         None => 0,
         IDEA => 1,
         DES  => 2,
         DES3 => 3,
-        ARCFOUR => 5,
+        RC4 => 5,
         Blowfish => 6,
     );
+    %CIPHERS_SSH2 = (
+        '3des-cbc' => 'DES3',
+        'blowfish-cbc' => 'Blowfish',
+        'arcfour' => 'RC4',
+    );
     %CIPH_REVERSE = reverse %CIPHERS;
+}
 
+sub _determine_supported {
     for my $ciph (keys %CIPHERS) {
         my $pack = sprintf "%s::%s", __PACKAGE__, $ciph;
         eval "use $pack";
@@ -30,6 +36,7 @@ sub new {
     my $type = shift;
     my($ciph);
     unless ($type eq "None") {
+        $type = $CIPHERS_SSH2{$type} || $type;
         my $ciph_class = join '::', __PACKAGE__, $type;
         (my $lib = $ciph_class . ".pm") =~ s!::!/!g;
         require $lib;
@@ -43,10 +50,14 @@ sub new {
 
 sub new_from_key_str {
     my $class = shift;
+    eval "use Digest::MD5 qw( md5 );";
     defined $_[1] ?
         $class->new($_[0], md5($_[1])) :
         $class->new(@_);
 }
+
+sub enabled { $_[0]->{enabled} }
+sub enable { $_[0]->{enabled} = 1 }
 
 sub id {
     my $this = shift;
@@ -81,6 +92,9 @@ sub mask {
 }
 
 sub supported {
+    unless (keys %SUPPORTED) {
+        _determine_supported();
+    }
     return [ keys %SUPPORTED ] unless @_;
     my $id = ref $_[0] ? shift->id : shift;
     return $id == 0 || exists $SUPPORTED{$id} unless @_;

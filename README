@@ -1,12 +1,28 @@
-$Id: README,v 1.10 2001/03/22 01:48:24 btrott Exp $
+$Id: README,v 1.16 2001/05/02 23:37:12 btrott Exp $
 
-This is Net::SSH::Perl.
+This is Net::SSH::Perl. It contains implementations of
+both the SSH1 and SSH2 protocols.
 
 PREREQUISITES
+
+Protocol 1
 
     * Math::GMP (1.04 or greater)
     * String::CRC32 (1.2 or greater)
     * Digest::MD5
+
+Protocol 2
+
+    * Crypt::DSA (0.03 or greater)
+    * Crypt::DH (0.01 or greater)
+    * Convert::ASN1 (0.10 or greater)
+    * Convert::PEM (0.04 or greater)
+    * Math::Pari (2.001804 or greater)
+    * MIME::Base64
+    * Digest::MD5
+    * Digest::SHA1
+    * Digest::HMAC_MD5
+    * Digest::HMAC_SHA1
 
 INSTALLATION
 
@@ -40,9 +56,9 @@ downloaded and installed automatically.
 
 If it doesn't work, or if you don't like this option, you'll
 need to do the installations manually. In which case you'll
-need to install Math::GMP (version 1.04 or later),
-String::CRC32 (version 1.2 or later), and Digest::MD5, plus
-any additional Crypt:: modules you wish to use.
+need to install the prerequisites listed above for your
+chosen protocol, plus any additional Crypt:: modules you
+wish to use.
 
 SAMPLES/TUTORIALS
 
@@ -56,6 +72,11 @@ functionality in the module;
 remote servers and connecting to a shell on remote servers;
 
 * eg/pscp is a very simple scp-like script;
+
+* eg/pssh-keygen is, as you might guess, an implementation of
+ssh-keygen in Perl, using the Net::SSH::Perl key libraries.
+It contains almost all of the functionality in the OpenSSH
+version of ssh-keygen.
 
 * eg/remoteinteract.pl is an example of using register_handler
 to interact with a remote (interactive) command.

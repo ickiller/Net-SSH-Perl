@@ -1,4 +1,4 @@
-# $Id: 02-buffer.t,v 1.5 2001/03/09 18:37:45 btrott Exp $
+# $Id: 02-buffer.t,v 1.7 2001/04/22 03:35:15 btrott Exp $
 
 use strict;
 
@@ -7,9 +7,11 @@ BEGIN { plan tests => 20 }
 
 use vars qw( $loaded );
 END { print "not ok 1\n" unless $loaded; }
-use Net::SSH::Perl::Buffer;
+use Net::SSH::Perl::Buffer qw( SSH1 );
 $loaded++;
 ok($loaded);
+
+use Math::GMP;
 
 my $buffer = Net::SSH::Perl::Buffer->new;
 ok($buffer);

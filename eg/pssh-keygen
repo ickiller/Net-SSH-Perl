@@ -1,0 +1,248 @@
+#!/usr/bin/perl -w
+# $Id: pssh-keygen,v 1.4 2001/05/02 07:31:11 btrott Exp $
+
+use strict;
+
+use Getopt::Long;
+use MIME::Base64 qw( encode_base64 );
+use Net::SSH::Perl::Key;
+use Net::SSH::Perl::Util qw( _read_passphrase );
+
+my %opts;
+Getopt::Long::Configure('no_ignore_case');
+GetOptions(\%opts, "b=i", "f=s", "l", "p", "q", "t=s", "C=s", "N=s", "P=s", "x", "X", "y");
+
+use vars qw( $VERBOSE $SSH_DIR );
+$VERBOSE = !$opts{q};
+$SSH_DIR = "$ENV{HOME}/.ssh";
+
+my %types = (
+    dsa => {
+        name => 'DSA',
+        keyfile => 'id_dsa',
+    },
+    rsa1 => {
+        name => 'RSA',
+        keyfile => 'identity',
+    },
+);
+
+my $type = $opts{t} || 'rsa1';
+my $key_type = $types{$type}{name};
+my $def_keyfile = "$SSH_DIR/$types{$type}{keyfile}";
+
+if ($opts{p} || $opts{x} || $opts{y} ||
+    $opts{c} || $opts{l} || $opts{B}) {
+    my $keyfile;
+    unless ($keyfile = $opts{f}) {
+        $keyfile = prompt("Enter file in which the key is:", $def_keyfile);
+    }
+
+    my $key = Net::SSH::Perl::Key->read_private($key_type, $keyfile, $opts{P});
+    unless ($key) {
+        my $pass = _read_passphrase("Enter old passphrase: ");
+        $key = Net::SSH::Perl::Key->read_private($key_type, $keyfile, $pass);
+    }
+    die "Bad passphrase.\n" unless $key;
+
+    if ($opts{p}) {
+        my $new = $opts{N};
+        unless ($new) {
+            $new = _read_passphrase("Enter new passphrase (empty for no passphrase): ");
+            my $again = _read_passphrase("Enter same passphrase again: ");
+            die "Pass phrases do not match. Try again.\n"
+                unless $new eq $again;
+        }
+
+        $key->write_private($keyfile, $new);
+    }
+    elsif ($opts{l}) {
+        print $key->size, " ", $key->fingerprint, "\n";
+    }
+    elsif ($opts{y}) {
+        print $key->dump_public, "\n";
+    }
+    elsif ($opts{x}) {
+        my $comment = $key->size .
+           "-bit $key_type, converted from Net::SSH::Perl";
+        (my $pub = encode_base64($key->as_blob, '')) =~ s!(.{1,70})!$1\n!g;
+        print qq(---- BEGIN SSH2 PUBLIC KEY ----\n),
+              qq(Comment: "$comment"\n),
+              $pub,
+              qq(---- END SSH2 PUBLIC KEY ----\n);
+    }
+}
+elsif ($opts{X}) {
+    my $keyfile;
+    unless ($keyfile = $opts{f}) {
+        $keyfile = prompt("Enter file in which the key is:", $def_keyfile);
+    }
+
+    my $key = Net::SSH::Perl::Key->new('DSA');
+
+    require Crypt::DSA::Key;
+    $key->{dsa} = Crypt::DSA::Key->new(
+                    Filename => $keyfile,
+                    Type     => 'SSH2'
+            );
+    die "Loading key failed" unless $key->{dsa};
+
+    print $key->write_private;
+}
+else {
+    debug("Generating public/private $type key pair.");
+    my $key = Net::SSH::Perl::Key->keygen($key_type, $opts{b} || 1024);
+
+    my $keyfile;
+    unless ($keyfile = $opts{f}) {
+        $keyfile = prompt("Enter file in which to save the key:", $def_keyfile);
+    }
+
+    my $pass = $opts{N};
+    unless ($pass) {
+        $pass = _read_passphrase("Enter new passphrase (empty for no passphrase): ");
+        my $again = _read_passphrase("Enter same passphrase again: ");
+        die "Pass phrases do not match. Try again.\n"
+            unless $pass eq $again;
+    }
+
+    $key->write_private($keyfile, $pass);
+    debug("Your identification has been saved in $keyfile.");
+
+    my $pub = "$keyfile.pub";
+    local *FH;
+    open FH, ">$pub" or die "Can't open public keyfile $pub: $!";
+    print FH $key->dump_public;
+    close FH or warn "Can't close public keyfile $pub: $!";
+    debug("Your public key has been saved in $pub.");
+
+    debug("The key fingerprint is:");
+    debug($key->fingerprint);
+}
+
+sub debug {
+    print STDERR "@_\n" if $VERBOSE;
+}
+
+sub prompt {
+    my($msg, $def) = @_;
+    print "$msg " . ($def ? "[$def] " : "");
+    chomp(my $ans = <STDIN>);
+    $ans ? $ans : $def;
+}
+
+__END__
+
+=head1 NAME
+
+pssh-keygen - Authentication key generation/management
+
+=head1 SYNOPSIS
+
+pssh-keygen [B<-q>] [B<-b> I<bits>] [B<-t> I<type>] [B<-N>
+            I<new_passphrase>] [B<-f> I<output_keyfile>]
+
+pssh-keygen B<-p> [B<-P> I<old_passphrase>] [B<-N>
+            I<new_passphrase>] [B<-f> I<keyfile>]
+
+pssh-keygen B<-x> [B<-f> I<input_keyfile>]
+
+pssh-keygen B<-X> [B<-f> I<input_keyfile>]
+
+pssh-keygen B<-y> [B<-f> I<input_keyfile>]
+
+pssh-keygen B<-l> [B<-f> I<input_keyfile>]
+
+=head1 DESCRIPTION
+
+I<pssh-keygen> generates and manages SSH authentication keys.
+I<pssh-keygen> is part of the I<Net::SSH::Perl> suite; it could
+be used as a replacement for I<ssh-keygen>, but is provided
+more in the spirit of an example of the I<Net::SSH::Perl>
+key management libraries.
+
+I<pssh-keygen> defaults to generating/managing an RSA key for
+use by protocols 1.3 and 1.5; specifying the B<-t> option allows
+you to create/manage a key for use by the SSH2 protocol.
+
+Without any options--in other words, in the first command example
+in the I<SYNOPSIS>--I<pssh-keygen> generates a new key, then
+prompts the user for a filename where that key will be saved.
+The user is also prompted for a passphrase to encrypt the private
+key file. These prompts can be overriden by providing the values
+as command line options.
+
+With any of the other options--ie. any of the other command
+examples in the I<SYNOPSIS>--an existing keyfile will be
+"managed" in some way: users can change the passphrases, convert
+to SSH2-format key files, display key fingerprints, etc.
+
+=head1 OPTIONS
+
+=over 4
+
+=item -b I<bits>
+
+Specifies the number of bits in the key to be generated. The
+minimum is 512 bits; 1024 bits is the default, and should be
+considered sufficient from a security standpoint.
+
+=item -f I<file>
+
+Specifies the filename of the key file. Defaults to
+F<$ENV{HOME}/.ssh/identity> for I<rsa1> key files, and
+F<$ENV{HOME}/.ssh/id_dsa> for I<dsa> key files.
+
+=item -l
+
+Show fingerprint of specified private key file.
+
+=item -p
+
+Requests changing the passphrase of a private key file instead
+of generating a new private key. The program will prompt for
+the file containing the private key, for the old passphrase,
+and twice for the new passphrase (each of these prompts can
+be overridden by command line options).
+
+=item -q
+
+Silence I<pssh-keygen>.
+
+=item -t I<type>
+
+Specifies the type of the key to create/manage. The possible
+values are C<'rsa1'> for protocol version 1 and C<'dsa'> for
+protocol version 2 DSA files. The default is C<'rsa1'>.
+
+=item -N I<new_passphrase>
+
+Provides the new passphrase.
+
+=item -P I<passphrase>
+
+Provides the (old) passphrase.
+
+=item -x
+
+Reads a private OpenSSH DSA format file and outputs an
+SSH2-compatible public key to STDOUT.
+
+=item -X
+
+Reads an unencrypted SSH2-compatible private key file and
+prints an OpenSSH compatible private key to STDOUT.
+
+=item -y
+
+Reads a private OpenSSH format file and outputs an OpenSSH
+public key to STDOUT.
+
+=back
+
+=head1 AUTHOR & COPYRIGHTS
+
+Please see the Net::SSH::Perl manpage for author, copyright,
+and license information.
+
+=cut

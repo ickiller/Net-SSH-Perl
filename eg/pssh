@@ -1,15 +1,14 @@
 #!/usr/bin/perl -w
-# $Id: pssh,v 1.13 2001/03/23 00:50:36 btrott Exp $
+# $Id: pssh,v 1.16 2001/04/28 05:28:40 btrott Exp $
 
 use strict;
 
 use Net::SSH::Perl;
-use Net::SSH::Perl::Constants qw( :msg PROTOCOL_MAJOR PROTOCOL_MINOR );
 use Getopt::Long;
 
 my %opts;
 Getopt::Long::Configure('no_ignore_case');
-GetOptions(\%opts, "c=s", "l=s", "p=i", "i=s@", "v", "t", "C", "o=s@", "V");
+GetOptions(\%opts, "c=s", "l=s", "p=i", "i=s@", "v", "t", "C", "o=s@", "V", "2", "1");
 
 if ($opts{V}) {
     print Net::SSH::Perl->version_string, "\n";
@@ -36,6 +35,8 @@ $args{debug} = 1 if $opts{v};
 $args{identity_files} = $opts{i} if $opts{i};
 $args{use_pty} = 1 if $opts{t};
 $args{options} = $opts{o} if $opts{o};
+$args{protocol} = 2 if $opts{2};
+$args{protocol} = 1 if $opts{1};
 
 my $ssh = Net::SSH::Perl->new($host, %args);
 $ssh->config->set('interactive', 1)
@@ -65,9 +66,10 @@ pssh - Perl secure shell client
 
 pssh I<hostname> [I<command>]
 
-pssh [B<-c> I<idea>|I<blowfish>|I<des>|I<3des>] [B<-i> I<identity_file>]
-[B<-l> I<login_name>] [B<-V>] [B<-o> I<option>] [B<-p> I<port>] [B<-t>]
-[B<-v>] [B<-C>] I<hostname> [I<command>]
+pssh [B<-c> I<idea>|I<blowfish>|I<des>|I<3des>]|I<arcfour> [B<-i>
+I<identity_file>] [B<-l> I<login_name>] [B<-V>] [B<-o> I<option>]
+[B<-p> I<port>] [B<-t>] [B<-v>] [B<-C>] [B<-1>] [B<-2>]
+I<hostname> [I<command>]
 
 =head1 DESCRIPTION
 
@@ -92,17 +94,18 @@ Please see the I<Net::SSH::Perl> docs for more information.
 
 =over 4
 
-=item -c I<idea>|I<des>|I<3des>|I<blowfish>
+=item -c I<idea>|I<des>|I<3des>|I<blowfish>|I<arcfour>
 
 Selects the cipher to use for session encryption. I<idea> is the default,
 unless it's not supported by the server, in which case I<3des> is
-used.
+used. I<arcfour> is only available in SSH2.
 
 =item -i I<identity_file>
 
 Specifies the file(s) from which the private key identity is to be
-read for RSA authentication. The default is F<$ENV{HOME}/.ssh/identity>.
-You can use multiple B<-i> options.
+read for RSA authentication. The default is F<$ENV{HOME}/.ssh/identity>
+in SSH1, and F<$ENV{HOME}/.ssh/id_dsa> in SSH2. You can use multiple
+B<-i> options; each key file will be tried until one works.
 
 =item -l I<login_name>
 
@@ -134,6 +137,14 @@ in debugging connection, authentication, and configuration issues.
 =item -V
 
 Print only I<Net::SSH::Perl> version number and exit.
+
+=item -1
+
+Force client to use the SSH1 protocol.
+
+=item -2
+
+Force client to use the SSH2 protocol.
 
 =back
 

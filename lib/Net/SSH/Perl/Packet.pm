@@ -1,4 +1,4 @@
-# $Id: Packet.pm,v 1.9 2001/03/14 04:22:45 btrott Exp $
+# $Id: Packet.pm,v 1.16 2001/04/17 06:15:37 btrott Exp $
 
 package Net::SSH::Perl::Packet;
 
@@ -9,11 +9,11 @@ use POSIX qw( :errno_h );
 
 use Net::SSH::Perl;
 use Net::SSH::Perl::Constants qw(
+    :protocol
     SSH_MSG_DISCONNECT
     SSH_MSG_DEBUG
     MAX_PACKET_SIZE );
 use Net::SSH::Perl::Buffer;
-use Net::SSH::Perl::Util qw( _crc32 );
 
 sub new {
     my $class = shift;
@@ -58,6 +58,30 @@ sub read_poll {
     my $class = shift;
     my $ssh = shift;
 
+    my $packet = $ssh->protocol == PROTOCOL_SSH2 ?
+        $class->read_poll_ssh2($ssh) : $class->read_poll_ssh1($ssh);
+    return if !$packet;
+
+    my $type = $packet->type;
+    if ($type == SSH_MSG_DISCONNECT) {
+        croak sprintf "Received disconnect message: %s\n", $packet->get_str;
+    }
+    elsif ($type == SSH_MSG_DEBUG) {
+        $ssh->debug(sprintf "Remote: %s", $packet->get_str);
+        return $class->read($ssh);
+    }
+
+    $packet;
+}
+
+sub read_poll_ssh1 {
+    my $class = shift;
+    my $ssh = shift;
+
+    unless (defined &_crc32) {
+        eval "use Net::SSH::Perl::Util qw( _crc32 );";
+    }
+
     my $incoming = $ssh->incoming_data;
     return if $incoming->length < 4 + 8;
 
@@ -86,37 +110,81 @@ sub read_poll {
 
     $buffer->bytes(-4, 4, "");  ## Cut off checksum.
 
-    if ($ssh->compression) {
-        my $i = $ssh->receive_compression;
-        my($inflated, $err);
-        {
-            my($out);
-            ($out, $err) = $i->inflate($buffer->bytes);
-            last unless $err == Compress::Zlib::Z_OK();
-
-            $inflated = $out;
-        }
-        unless (defined $inflated) {
-            $ssh->fatal_disconnect("Error while inflating: $err");
-        }
-    
+    if (my $comp = $ssh->compression) {
+        my $inflated = $comp->uncompress($buffer->bytes);
         $buffer->empty;
         $buffer->append($inflated);
     }
 
     my $type = unpack "c", $buffer->bytes(0, 1, "");
-    if ($type == SSH_MSG_DISCONNECT) {
-        croak sprintf "Received disconnect message: %s\n", $buffer->get_str;
-    }
-
-    if ($type == SSH_MSG_DEBUG) {
-        $ssh->debug(sprintf "Remote: %s", $buffer->get_str);
-        return $class->read($ssh);
-    }
-
     $class->new($ssh,
         type => $type,
         data => $buffer);
+}
+
+sub read_poll_ssh2 {
+    my $class = shift;
+    my $ssh = shift;
+    my $kex = $ssh->kex;
+
+    my($ciph, $mac, $comp);
+    if ($kex) {
+        $ciph = $kex->receive_cipher;
+        $mac  = $kex->receive_mac;
+        $comp = $kex->receive_comp;
+    }
+    my $maclen = $mac && $mac->enabled ? $mac->len : 0;
+    my $block_size = 8;
+
+    my $incoming = $ssh->incoming_data;
+    if (!$ssh->{session}{_last_packet_length}) {
+        return if $incoming->length < $block_size;
+        my $b = Net::SSH::Perl::Buffer->new;
+        $b->append( $ciph && $ciph->enabled ?
+            $ciph->decrypt($incoming->bytes(0, $block_size)) : $incoming->bytes(0, $block_size)
+        );
+        $incoming->bytes(0, $block_size, $b->bytes);
+        my $plen = $ssh->{session}{_last_packet_length} = $b->get_int32;
+        if ($plen < 1 + 4 || $plen > 256 * 1024) {
+            $ssh->fatal_disconnect("Bad packet length $plen");
+        }
+    }
+    my $need = 4 + $ssh->{session}{_last_packet_length} - $block_size;
+    croak "padding error: need $need block $block_size"
+        if $need % $block_size;
+    return if $incoming->length < $need + $block_size + $maclen;
+
+    my $buffer = Net::SSH::Perl::Buffer->new;
+    $buffer->append( $incoming->bytes(0, $block_size, '') );
+    my $p_str = $incoming->bytes(0, $need, '');
+    $buffer->append( $ciph && $ciph->enabled ?
+        $ciph->decrypt($p_str) : $p_str );
+    my($macbuf);
+    if ($mac && $mac->enabled) {
+        $macbuf = $mac->hmac(pack("N", $ssh->{session}{seqnr_in}) . $buffer->bytes);
+        my $stored_mac = $incoming->bytes(0, $maclen, '');
+        $ssh->fatal_disconnect("Corrupted MAC on input")
+            unless $macbuf eq $stored_mac;
+    }
+    $ssh->{session}{seqnr_in}++;
+
+    my $padlen = unpack "c", $buffer->bytes(4, 1);
+    $ssh->fatal_disconnect("Corrupted padlen $padlen on input")
+        unless $padlen >= 4;
+
+    ## Cut off packet size + padlen, discard padding */
+    $buffer->bytes(0, 5, '');
+    $buffer->bytes(-$padlen, $padlen, '');
+
+    if ($comp && $comp->enabled) {
+        my $inflated = $comp->uncompress($buffer->bytes);
+        $buffer->empty;
+        $buffer->append($inflated);
+    }
+
+    my $type = unpack "c", $buffer->bytes(0, 1, '');
+    $ssh->{session}{_last_packet_length} = 0;
+    $class->new($ssh, type => $type, data => $buffer);
 }
 
 sub read_expect {
@@ -133,8 +201,22 @@ sub read_expect {
 
 sub send {
     my $pack = shift;
+    if ($pack->{ssh}->protocol == PROTOCOL_SSH2) {
+        $pack->send_ssh2(@_);
+    }
+    else {
+        $pack->send_ssh1(@_);
+    }
+}
+
+sub send_ssh1 {
+    my $pack = shift;
     my $buffer = shift || $pack->{data};
     my $ssh = $pack->{ssh};
+
+    unless (defined &_crc32) {
+        eval "use Net::SSH::Perl::Util qw( _crc32 );";
+    }
 
     if ($buffer->length >= MAX_PACKET_SIZE - 30) {
         $ssh->fatal_disconnect(sprintf
@@ -142,22 +224,8 @@ sub send {
             $buffer->length, MAX_PACKET_SIZE);
     }
 
-    if (my $level = $ssh->compression) {
-        my $d = $ssh->send_compression;
-        my($compressed, $err);
-        {
-            my($output, $out);
-            ($output, $err) = $d->deflate($buffer->bytes);
-            last unless $err == Compress::Zlib::Z_OK();
-            ($out, $err) = $d->flush(Compress::Zlib::Z_PARTIAL_FLUSH());
-            last unless $err == Compress::Zlib::Z_OK();
-
-            $compressed = $output . $out;
-        }
-        unless (defined $compressed) {
-            $ssh->fatal_disconnect("Error while compressing: $err");
-        }
-    
+    if (my $comp = $ssh->compression) {
+        my $compressed = $comp->compress($buffer->bytes);
         $buffer->empty;
         $buffer->append($compressed);
     }
@@ -176,6 +244,49 @@ sub send {
     $output->put_int32($len);
     my $data = $cipher ? $cipher->encrypt($buffer->bytes) : $buffer->bytes;
     $output->put_chars($data);
+
+    my $sock = $ssh->sock;
+    syswrite $sock, $output->bytes;
+}
+
+sub send_ssh2 {
+    my $pack = shift;
+    my $buffer = shift || $pack->{data};
+    my $ssh = $pack->{ssh};
+
+    my $kex = $ssh->kex;
+    my($ciph, $mac, $comp);
+    if ($kex) {
+        $ciph = $kex->send_cipher;
+        $mac  = $kex->send_mac;
+        $comp = $kex->send_comp;
+    }
+    my $block_size = 8;
+
+    if ($comp && $comp->enabled) {
+        my $compressed = $comp->compress($buffer->bytes);
+        $buffer->empty;
+        $buffer->append($compressed);
+    }
+
+    my $len = $buffer->length + 4 + 1;
+    my $padlen = $block_size - ($len % $block_size);
+    $padlen += $block_size if $padlen < 4;
+    my $junk = $ciph ? (join '', map chr rand 255, 1..$padlen) : ("\0" x $padlen);
+    $buffer->append($junk);
+
+    my $packet_len = $buffer->length + 1;
+    $buffer->bytes(0, 0, pack("N", $packet_len) . pack("c", $padlen));
+
+    my($macbuf);
+    if ($mac && $mac->enabled) {
+        $macbuf = $mac->hmac(pack("N", $ssh->{session}{seqnr_out}) . $buffer->bytes);
+    }
+    my $output = Net::SSH::Perl::Buffer->new;
+    $output->append( $ciph && $ciph->enabled ? $ciph->encrypt($buffer->bytes) : $buffer->bytes );
+    $output->append($macbuf) if $mac && $mac->enabled;
+
+    $ssh->{session}{seqnr_out}++;
 
     my $sock = $ssh->sock;
     syswrite $sock, $output->bytes;

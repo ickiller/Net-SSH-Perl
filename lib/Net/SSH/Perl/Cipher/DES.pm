@@ -1,4 +1,4 @@
-# $Id: DES.pm,v 1.4 2001/03/05 22:54:16 btrott Exp $
+# $Id: DES.pm,v 1.7 2001/05/02 21:59:33 btrott Exp $
 
 package Net::SSH::Perl::Cipher::DES;
 
@@ -12,10 +12,16 @@ use Crypt::DES;
 
 sub new {
     my $class = shift;
-    my $key = shift;
+    my $ciph = bless { }, $class;
+    $ciph->init(@_) if @_;
+    $ciph;
+}
+
+sub init {
+    my $ciph = shift;
+    my($key, $iv) = @_;
     my $des = Crypt::DES->new(substr $key, 0, 8);
-    my $cbc = Net::SSH::Perl::Cipher::CBC->new($des);
-    bless { cbc => $cbc }, $class;
+    $ciph->{cbc} = Net::SSH::Perl::Cipher::CBC->new($des, $iv);
 }
 
 sub encrypt {
@@ -37,8 +43,8 @@ Net::SSH::Perl::Cipher::DES - Wrapper for SSH DES support
 
 =head1 SYNOPSIS
 
-    use Net::SSH::Cipher;
-    my $cipher = Net::SSH::Cipher->new('DES', $key);
+    use Net::SSH::Perl::Cipher;
+    my $cipher = Net::SSH::Perl::Cipher->new('DES', $key);
     print $cipher->encrypt($plaintext);
 
 =head1 DESCRIPTION

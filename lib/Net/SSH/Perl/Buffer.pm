@@ -1,9 +1,31 @@
-# $Id: Buffer.pm,v 1.6 2001/03/09 18:37:10 btrott Exp $
+# $Id: Buffer.pm,v 1.12 2001/04/24 23:57:41 btrott Exp $
 
 package Net::SSH::Perl::Buffer;
 use strict;
 
-use Math::GMP;
+sub import {
+    my $class = shift;
+    unless ($class->can('get_mp_int') && $class->can('put_mp_int')) {
+        return unless @_;
+        my $proto = shift;
+        die "Unrecognized SSH protocol '$proto'"
+            unless $proto eq 'SSH1' || $proto eq 'SSH2';
+        if ($proto eq 'SSH1') {
+            eval "use Math::GMP;";
+        }
+        else {
+            eval "use Net::SSH::Perl::Util qw( :ssh2mp );";
+        }
+        no strict 'refs';
+        for my $w (qw( get put )) {
+            my $meth = "${w}_mp_int";
+            unless ($class->can($meth)) {
+                *{"${class}::$meth"} = $proto eq 'SSH1' ?
+                    \&{"${class}::${meth}1"} : \&{"${class}::${meth}2"};
+            }
+        }
+    }
+}
 
 sub new {
     my $class = shift;
@@ -121,7 +143,7 @@ sub put_str {
     $buf->{buf} .= $str;
 }
 
-sub get_mp_int {
+sub get_mp_int1 {
     my $buf = shift;
     my $off = defined $_[0] ? shift : $buf->{offset};
     my $bits = unpack "n", $buf->bytes($off, 2);
@@ -132,7 +154,7 @@ sub get_mp_int {
     Math::GMP->new("0x$hex");
 }
 
-sub put_mp_int {
+sub put_mp_int1 {
     my $buf = shift;
     my $int = shift;
     my $bits = Math::GMP::sizeinbase_gmp($int, 2);
@@ -144,6 +166,22 @@ sub put_mp_int {
     $buf->put_chars($tmp);
 }
 
+sub get_mp_int2 {
+    my $buf = shift;
+    my $bits = $buf->get_str;
+    bin2mp($bits);
+}
+
+sub put_mp_int2 {
+    my $buf = shift;
+    my $int = shift;
+    my $bytes = (bitsize($int) / 8) + 1;
+    my $bin = mp2bin($int);
+    my $hasnohigh = (vec($bin, 0, 8) & 0x80) ? 0 : 1;
+    $bin = "\0" . $bin unless $hasnohigh;
+    $buf->put_str($bin);
+}
+
 1;
 __END__
 
@@ -153,7 +191,7 @@ Net::SSH::Perl::Buffer - Low-level read/write buffer class
 
 =head1 SYNOPSIS
 
-    use Net::SSH::Perl::Buffer;
+    use Net::SSH::Perl::Buffer (@args);
     my $buffer = Net::SSH::Perl::Buffer->new;
 
     ## Add a 32-bit integer.
@@ -248,16 +286,25 @@ itself) to the buffer.
 
 =head2 $buffer->get_mp_int
 
-Returns a I<Math::GMP> object representing a multiple
-precision integer read from the buffer. In the buffer
-itself, an mp_int is represented by a 16-bit integer
-(the number of bits in the integer), and the integer
-itself.
+Returns a bigint object representing a multiple precision
+integer read from the buffer. Depending on the protocol,
+the object is either of type I<Math::GMP> (SSH1) or
+I<Math::Pari> (SSH2).
+
+You determine which protocol will be in use when you
+I<use> the module: specify I<SSH1> or I<SSH2> to load
+the proper I<get> and I<put> routines for bigints:
+
+    use Net::SSH::Perl::Buffer qw( SSH1 );
 
 =head2 $buffer->put_mp_int($mp_int)
 
-Appends a multiple precision integer (16-bit integer
-bit count and the integer itself) to the buffer.
+Appends a multiple precision integer to the buffer.
+Depending on the protocol in use, I<$mp_int> should
+be either a I<Math::GMP> object (SSH1) or a I<Math::Pari>
+object (SSH2). The format in which the integer is
+stored in the buffer differs between the protocols,
+as well.
 
 =head1 LOW-LEVEL METHODS
 

@@ -1,10 +1,15 @@
-# $Id: Password.pm,v 1.9 2001/03/13 05:08:07 btrott Exp $
+# $Id: Password.pm,v 1.12 2001/04/20 22:51:07 btrott Exp $
 
 package Net::SSH::Perl::Auth::Password;
 
 use strict;
 
-use Net::SSH::Perl::Constants qw( SSH_CMSG_AUTH_PASSWORD SSH_SMSG_SUCCESS SSH_SMSG_FAILURE );
+use Net::SSH::Perl::Constants qw(
+    SSH_CMSG_AUTH_PASSWORD
+    SSH_SMSG_SUCCESS
+    SSH_SMSG_FAILURE
+    SSH2_MSG_USERAUTH_REQUEST
+    PROTOCOL_SSH2 );
 
 use Net::SSH::Perl::Packet;
 use Net::SSH::Perl::Util qw( _read_passphrase );
@@ -14,16 +19,30 @@ use base qw( Net::SSH::Perl::Auth );
 sub new {
     my $class = shift;
     my $ssh = shift;
-    bless { ssh => $ssh }, $class;
+    my $auth = bless { ssh => $ssh }, $class;
+    $auth->enabled( $ssh->config->get('auth_password') );
+    $auth;
+}
+
+sub enabled {
+    my $auth = shift;
+    $auth->{enabled} = shift if @_;
+    $auth->{enabled};
 }
 
 sub authenticate {
     my $auth = shift;
+    my $try = shift || 0;
     my($packet);
 
     my $ssh = $auth->{ssh};
     $ssh->debug("Password authentication is disabled by the client."), return
-        unless $ssh->config->get('auth_password');
+        unless $auth->enabled;
+
+    if ($ssh->protocol == PROTOCOL_SSH2 &&
+        $try >= $ssh->config->get('number_of_password_prompts')) {
+        return;
+    }
 
     my $pass = $ssh->config->get('pass');
     $ssh->debug("Trying password authentication.");
@@ -51,16 +70,29 @@ sub authenticate {
             $ssh->debug("Will not query passphrase in batch mode.");
         }
     }
-    $packet = $ssh->packet_start(SSH_CMSG_AUTH_PASSWORD);
-    $packet->put_str($pass);
-    $packet->send;
 
-    $packet = Net::SSH::Perl::Packet->read($ssh);
-    return 1 if $packet->type == SSH_SMSG_SUCCESS;
+    if ($ssh->protocol == PROTOCOL_SSH2) {
+        $packet = $ssh->packet_start(SSH2_MSG_USERAUTH_REQUEST);
+        $packet->put_str($ssh->config->get('user'));
+        $packet->put_str("ssh-connection");
+        $packet->put_str("password");
+        $packet->put_int8(0);
+        $packet->put_str($pass);
+        $packet->send;
+        return 1;
+    }
+    else {
+        $packet = $ssh->packet_start(SSH_CMSG_AUTH_PASSWORD);
+        $packet->put_str($pass);
+        $packet->send;
 
-    if ($packet->type != SSH_SMSG_FAILURE) {
-        $ssh->fatal_disconnect(sprintf
-          "Protocol error: got %d in response to SSH_CMSG_AUTH_PASSWORD", $packet->type);
+        $packet = Net::SSH::Perl::Packet->read($ssh);
+        return 1 if $packet->type == SSH_SMSG_SUCCESS;
+
+        if ($packet->type != SSH_SMSG_FAILURE) {
+            $ssh->fatal_disconnect(sprintf
+              "Protocol error: got %d in response to SSH_CMSG_AUTH_PASSWORD", $packet->type);
+        }
     }
 
     return 0;
