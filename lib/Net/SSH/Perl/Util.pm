@@ -1,40 +1,9 @@
-# $Id: Util.pm,v 1.27 2001/06/03 23:40:31 btrott Exp $
+# $Id: Util.pm,v 1.28 2001/06/05 01:09:18 btrott Exp $
 
 package Net::SSH::Perl::Util;
 use strict;
 
-use vars qw( @EXPORT_OK %FUNC_TO_MOD %EXPORT_TAGS );
-
-@EXPORT_OK = qw(
-    _crc32
-    _compute_session_id
-    _mp_linearize
-    _check_host_in_hostfile
-    _add_host_to_hostfile
-    _load_private_key
-    _load_public_key
-    _save_private_key
-    bitsize
-    bin2mp
-    mp2bin
-    mod_inverse
-    _respond_to_rsa_challenge
-    _rsa_public_encrypt
-    _rsa_private_decrypt
-    _prompt
-    _read_passphrase
-    _read_yes_or_no
-);
-
-%EXPORT_TAGS = (
-    hosts    => [ qw( _check_host_in_hostfile _add_host_to_hostfile ) ],
-    rsa      => [ qw( _rsa_public_encrypt _rsa_private_decrypt
-                      _respond_to_rsa_challenge ) ],
-    ssh1mp   => [ qw( _compute_session_id _mp_linearize ) ],
-    ssh2mp   => [ qw( bitsize bin2mp mp2bin mod_inverse ) ],
-    authfile => [ qw( _load_public_key _load_private_key _save_private_key ) ],
-    all      => [ @EXPORT_OK ],
-);
+use vars qw( %FUNC_TO_MOD %EXPORT_TAGS );
 
 %FUNC_TO_MOD = (
     _crc32                    => 'SSH1Misc',
@@ -55,6 +24,16 @@ use vars qw( @EXPORT_OK %FUNC_TO_MOD %EXPORT_TAGS );
     _prompt                   => 'Term',
     _read_passphrase          => 'Term',
     _read_yes_or_no           => 'Term',
+);
+
+%EXPORT_TAGS = (
+    hosts    => [ qw( _check_host_in_hostfile _add_host_to_hostfile ) ],
+    rsa      => [ qw( _rsa_public_encrypt _rsa_private_decrypt
+                      _respond_to_rsa_challenge ) ],
+    ssh1mp   => [ qw( _compute_session_id _mp_linearize ) ],
+    ssh2mp   => [ qw( bitsize bin2mp mp2bin mod_inverse ) ],
+    authfile => [ qw( _load_public_key _load_private_key _save_private_key ) ],
+    all      => [ keys %FUNC_TO_MOD ],
 );
 
 sub import {

@@ -1,4 +1,4 @@
-# $Id: Perl.pm,v 1.90 2001/06/04 07:17:53 btrott Exp $
+# $Id: Perl.pm,v 1.92 2001/06/06 05:09:40 btrott Exp $
 
 package Net::SSH::Perl;
 use strict;
@@ -22,7 +22,7 @@ eval {
     $HOSTNAME = hostname();
 };
 
-$VERSION = "1.15";
+$VERSION = "1.16";
 
 sub VERSION { $VERSION }
 
@@ -378,8 +378,8 @@ Net::SSH::Perl - Perl client Interface to SSH
 =head1 DESCRIPTION
 
 I<Net::SSH::Perl> is an all-Perl module implementing an SSH
-(Secure Shell) client. It is compatible with both the SSH1 and
-SSH2 protocols.
+(Secure Shell) client. It is compatible with both the SSH-1 and
+SSH-2 protocols.
 
 I<Net::SSH::Perl> enables you to simply and securely execute commands
 on remote machines, and receive the STDOUT, STDERR, and exit status
@@ -445,7 +445,7 @@ I<new> accepts the following named parameters in I<%params>:
 
 The protocol you wish to use for the connection: should be either
 C<2>, C<1>, C<'1,2'> or C<'2,1'>. The first two say, quite simply,
-"only use this version of the protocol" (SSH2 or SSH1, respectively).
+"only use this version of the protocol" (SSH-2 or SSH-1, respectively).
 The latter two specify that either protocol can be used, but that
 one protocol (the first in the comma-separated list) is preferred
 over the other.
@@ -457,7 +457,7 @@ the second will be used. (Presumably your server will support at
 least one of the two protocols. :)
 
 The default value is C<'1,2'>, for compatibility with OpenSSH; this
-means that the client will use SSH1 if the server supports SSH1.
+means that the client will use SSH-1 if the server supports SSH-1.
 Of course, you can always override this using a user/global
 configuration file, or through using this constructor argument.
 
@@ -466,13 +466,13 @@ configuration file, or through using this constructor argument.
 Specifies the name of the encryption cipher that you wish to
 use for this connection. This must be one of the supported
 ciphers; specifying an unsupported cipher will give you an error
-when you enter algorithm negotiation (in either SSH1 or SSH2).
+when you enter algorithm negotiation (in either SSH-1 or SSH-2).
 
-In SSH1, the supported cipher names are I<IDEA>, I<DES>, I<DES3>,
-and I<Blowfish>; in SSH2, the supported ciphers are I<arcfour>,
+In SSH-1, the supported cipher names are I<IDEA>, I<DES>, I<DES3>,
+and I<Blowfish>; in SSH-2, the supported ciphers are I<arcfour>,
 I<blowfish-cbc>, and I<3des-cbc>.
 
-The default SSH1 cipher is I<IDEA>; the default SSH2 cipher is
+The default SSH-1 cipher is I<IDEA>; the default SSH-2 cipher is
 I<3des-cbc>.
 
 =item * ciphers
@@ -480,9 +480,9 @@ I<3des-cbc>.
 Like I<cipher>, this is a method of setting the cipher you wish to
 use for a particular SSH connection; but this corresponds to the
 I<Ciphers> configuration option, where I<cipher> corresponds to
-I<Cipher>. This also applies only in SSH2.
+I<Cipher>. This also applies only in SSH-2.
 
-This should be a comma-separated list of SSH2 cipher names; the list
+This should be a comma-separated list of SSH-2 cipher names; the list
 of cipher names is listed above in I<cipher>.
 
 This defaults to I<3des-cbc,blowfish-cbc,arcfour>.
@@ -556,8 +556,8 @@ Specifies the compression level to use if compression is enabled
 I<compression_level> arguments to set the level; providing only
 this argument will not turn on encryption).
 
-This setting is only applicable to SSH1; the compression level for
-SSH2 Zlib compression is always set to 6.
+This setting is only applicable to SSH-1; the compression level for
+SSH-2 Zlib compression is always set to 6.
 
 The default value is 6.
 
@@ -610,7 +610,7 @@ command.
 If I<$stdin> is provided, it's supplied to the remote command
 I<$cmd> on standard input.
 
-NOTE: the SSH1 protocol does not support running multiple commands
+NOTE: the SSH-1 protocol does not support running multiple commands
 per connection, unless those commands are chained together so that
 the remote shell can evaluate them. Because of this, a new socket
 connection is created each time you call I<cmd>, and disposed of
@@ -626,7 +626,7 @@ will actually connect to the I<sshd> on the first invocation of
 I<cmd>, then disconnect; then connect again on the second
 invocation of I<cmd>, then disconnect again.
 
-Note that this does I<not> apply to the SSH2 protocol. SSH2 fully
+Note that this does I<not> apply to the SSH-2 protocol. SSH-2 fully
 supports running more than one command over the same connection.
 
 =head2 $ssh->shell
@@ -659,11 +659,16 @@ block, in case your program exits prior to reaching that line.
 If you need an example, take a look at F<eg/pssh>, which
 uses almost this exact code to implement an ssh shell.
 
-=head2 $ssh->register_handler($packet_type, $subref)
+=head2 $ssh->register_handler($packet_type, $subref [, @args ])
 
 Registers an anonymous subroutine handler I<$subref> to handle
 packets of type I<$packet_type> during the client loop. The
-client loop is entered after the client has sent a command
+subroutine will be called when packets of type I<$packet_type>
+are received, and in addition to the standard arguments (see
+below), will receive any additional arguments in I<@args>, if
+specified.
+
+The client loop is entered after the client has sent a command
 to the remote server, and after any STDIN data has been sent;
 it consists of reading packets from the server (STDOUT
 packets, STDERR packets, etc.) until the server sends the exit
@@ -681,24 +686,28 @@ by calling the I<register_handler> method and setting up handlers
 to be called at specific times.
 
 The behavior of the I<register_handler> method differs between
-the I<Net::SSH::Perl> SSH1 and SSH2 implementations. This is so
+the I<Net::SSH::Perl> SSH-1 and SSH-2 implementations. This is so
 because of the differences between the protocols (all 
-client-server communications in SSH2 go through the channel
+client-server communications in SSH-2 go through the channel
 mechanism, which means that input packets are processed
 differently).
 
 =over 4
 
-=item * SSH1 Protocol
+=item * SSH-1 Protocol
 
-In the SSH1 protocol, you should call I<register_handler> with two
+In the SSH-1 protocol, you should call I<register_handler> with two
 arguments: a packet type I<$packet_type> and a subroutine reference
 I<$subref>. Your subroutine will receive as arguments the
 I<Net::SSH::Perl::SSH1> object (with an open connection to the
 ssh3), and a I<Net::SSH::Perl::Packet> object, which represents the
-packet read from the server. I<$packet_type> should be an integer
-constant; you can import the list of constants into your namespace
-by explicitly loading the I<Net::SSH::Perl::Constants> module:
+packet read from the server. It will also receive any additional
+arguments I<@args> that you pass to I<register_handler>; this can
+be used to give your callback functions access to some of your
+otherwise private variables, if desired. I<$packet_type> should be
+an integer constant; you can import the list of constants into your
+namespace by explicitly loading the I<Net::SSH::Perl::Constants>
+module:
 
     use Net::SSH::Perl::Constants qw( :msg );
 
@@ -723,9 +732,9 @@ each datatype that you may need to read from a packet.
 Take a look at F<eg/remoteinteract.pl> for an example of interacting
 with a remote command through the use of I<register_handler>.
 
-=item * SSH2 Protocol
+=item * SSH-2 Protocol
 
-In the SSH2 protocol, you call I<register_handler> with two
+In the SSH-2 protocol, you call I<register_handler> with two
 arguments: a string identifying the type of handler you wish to
 create, and a subroutine reference. The "string" should be, at
 this point, either C<stdout> or C<stderr>; any other string will
@@ -736,29 +745,33 @@ to handle STDERR data.
 Your subroutine reference will be passed two arguments:
 a I<Net::SSH::Perl::Channel> object that represents the open
 channel on which the data was sent, and a I<Net::SSH::Perl::Buffer>
-object containing data read from the server.
+object containing data read from the server. In addition to these
+two arguments, the callback will be passed any additional
+arguments I<@args> that you passed to I<register_handler>; this
+can be used to give your callback functions to otherwise private
+variables, if desired.
 
-This illustrates the two main differences between the SSH1 and
-SSH2 implementations. The first difference is that, as mentioned
+This illustrates the two main differences between the SSH-1 and
+SSH-2 implementations. The first difference is that, as mentioned
 above, all communication between server and client is done through
 channels, which are built on top of the main connection between
 client and server. Multiple channels are multiplexed over the
-same connection. The second difference is that, in SSH1, you are
-processing the actual packets as they come in; in SSH2, the packets
+same connection. The second difference is that, in SSH-1, you are
+processing the actual packets as they come in; in SSH-2, the packets
 have already been processed somewhat, and their contents stored in
 buffers--you are processing those buffers.
 
 The above example (the I<I received this> example) of using
-I<register_handler> in SSH1 would look like this in SSH2:
+I<register_handler> in SSH-1 would look like this in SSH-2:
 
     $ssh->register_handler("stdout", sub {
         my($channel, $buffer) = @_;
         print "I received this: ", $buffer->bytes;
     });
 
-As you can see, it's quite similar to the form used in SSH1,
+As you can see, it's quite similar to the form used in SSH-1,
 but with a few important differences, due to the differences
-mentioned above between SSH1 and SSH2.
+mentioned above between SSH-1 and SSH-2.
 
 =back
 

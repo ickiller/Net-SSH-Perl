@@ -1,4 +1,4 @@
-# $Id: Packet.pm,v 1.17 2001/06/03 22:24:36 btrott Exp $
+# $Id: Packet.pm,v 1.18 2001/06/07 04:34:40 btrott Exp $
 
 package Net::SSH::Perl::Packet;
 
@@ -93,7 +93,7 @@ sub read_poll {
     else {
         return $packet;
     }
-    return;
+    return $class->read_poll($ssh);
 }
 
 sub read_poll_ssh1 {

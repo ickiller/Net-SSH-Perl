@@ -1,6 +1,16 @@
-$Id: Changes,v 1.59 2001/06/04 07:17:52 btrott Exp $
+$Id: Changes,v 1.61 2001/06/07 04:35:30 btrott Exp $
 
 Revision history for Net::SSH::Perl
+
+1.16  2001.06.06
+    - Fixed bug in Net::SSH::Perl::Packet that caused client to
+      sometimes hang after receiving DEBUG packets.
+    - register_handler (for both SSH-1 and SSH-2) now takes any
+      'extra' arguments (other than packet type and code ref) and
+      will pass those arguments on to your callback function. This
+      allows callbacks access to otherwise private variable states.
+    - Didn't need @EXPORT_OK in Net::SSH::Perl::Util, so took it
+      out.
 
 1.15  2001.06.03
     - Agent authentication is now supported for both SSH-1 and

@@ -1,4 +1,4 @@
-# $Id: SSH2.pm,v 1.27 2001/05/31 08:55:51 btrott Exp $
+# $Id: SSH2.pm,v 1.28 2001/06/06 05:07:37 btrott Exp $
 
 package Net::SSH::Perl::SSH2;
 use strict;
@@ -53,8 +53,8 @@ sub _proto_init {
 sub kex { $_[0]->{kex} }
 
 sub register_handler {
-    my($ssh, $type, $sub) = @_;
-    $ssh->{client_handlers}{$type} = $sub;
+    my($ssh, $type, $sub, @extra) = @_;
+    $ssh->{client_handlers}{$type} = { code => $sub, extra => \@extra };
 }
 
 sub login {
@@ -139,16 +139,18 @@ sub cmd {
 
     my $h = $ssh->{client_handlers};
     my($stdout, $stderr);
-    if ($h->{stdout}) {
-        $channel->register_handler("_output_buffer", $h->{stdout});
+    if (my $r = $h->{stdout}) {
+        $channel->register_handler("_output_buffer",
+            $r->{code}, @{ $r->{extra} });
     }
     else {
         $channel->register_handler("_output_buffer", sub {
             $stdout .= $_[1]->bytes;
         });
     }
-    if ($h->{stderr}) {
-        $channel->register_handler("_extended_buffer", $h->{stderr});
+    if (my $r = $h->{stderr}) {
+        $channel->register_handler("_extended_buffer",
+            $r->{code}, @{ $r->{extra} });
     }
     else {
         $channel->register_handler("_extended_buffer", sub {

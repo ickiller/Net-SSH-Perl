@@ -1,4 +1,4 @@
-# $Id: ChannelMgr.pm,v 1.4 2001/05/15 06:26:03 btrott Exp $
+# $Id: ChannelMgr.pm,v 1.5 2001/06/06 05:07:37 btrott Exp $
 
 package Net::SSH::Perl::ChannelMgr;
 use strict;
@@ -140,7 +140,7 @@ sub input_open_confirmation {
     $c->{type} = SSH_CHANNEL_OPEN;
     $c->{remote_window} = $packet->get_int32;
     $c->{remote_maxpacket} = $packet->get_int32;
-    if (my $sub = $c->{handlers}{$packet->type}) {
+    if (my $sub = $c->{handlers}{$packet->type}{code}) {
         $sub->($c, $packet);
     }
     $cmgr->{ssh}->debug("channel $id: open confirm rwindow $c->{remote_window} rmax $c->{remote_maxpacket}");
@@ -168,7 +168,7 @@ sub input_channel_request {
     croak "Received request for non-open channel $id"
         unless $c && $c->{type} == SSH_CHANNEL_OPEN ||
                      $c->{type} == SSH_CHANNEL_LARVAL;
-    if (my $sub = $c->{handlers}{$packet->type}) {
+    if (my $sub = $c->{handlers}{$packet->type}{code}) {
         $sub->($c, $packet);
     }
 }

@@ -1,4 +1,4 @@
-# $Id: SSH1.pm,v 1.12 2001/05/10 22:44:22 btrott Exp $
+# $Id: SSH1.pm,v 1.13 2001/06/06 05:07:37 btrott Exp $
 
 package Net::SSH::Perl::SSH1;
 use strict;
@@ -55,11 +55,10 @@ sub _disconnect {
 }
 
 sub register_handler {
-    my($ssh, $type, $sub, $force) = @_;
-    if (!exists $ssh->{client_handlers}{$type} || $force) {
-        $ssh->{client_handlers}{$type} = $sub;
-    }
+    my($ssh, $type, $sub, @extra) = @_;
+    $ssh->{client_handlers}{$type} = { code => $sub, extra => \@extra };
 }
+sub handler_for { $_[0]->{client_handlers}{$_[1]} }
 
 sub _login {
     my $ssh = shift;
@@ -252,12 +251,18 @@ sub cmd {
         $packet->send;
     }
 
-    $ssh->register_handler(SSH_SMSG_STDOUT_DATA,
-        sub { $ssh->{_cmd_stdout} .= $_[1]->get_str });
-    $ssh->register_handler(SSH_SMSG_STDERR_DATA,
-        sub { $ssh->{_cmd_stderr} .= $_[1]->get_str });
-    $ssh->register_handler(SSH_SMSG_EXITSTATUS,
-        sub { $ssh->{_cmd_exit} = $_[1]->get_int32 });
+    unless ($ssh->handler_for(SSH_SMSG_STDOUT_DATA)) {
+        $ssh->register_handler(SSH_SMSG_STDOUT_DATA,
+            sub { $ssh->{_cmd_stdout} .= $_[1]->get_str });
+    }
+    unless ($ssh->handler_for(SSH_SMSG_STDERR_DATA)) {
+        $ssh->register_handler(SSH_SMSG_STDERR_DATA,
+            sub { $ssh->{_cmd_stderr} .= $_[1]->get_str });
+    }
+    unless ($ssh->handler_for(SSH_SMSG_EXITSTATUS)) {
+        $ssh->register_handler(SSH_SMSG_EXITSTATUS,
+            sub { $ssh->{_cmd_exit} = $_[1]->get_int32 });
+    }
 
     $ssh->_start_interactive(1);
     my($stdout, $stderr, $exit) =
@@ -295,8 +300,6 @@ sub _start_interactive {
 
     $ssh->debug("Entering interactive session.");
 
-    my $h = $ssh->{client_handlers};
-
     my $s = IO::Select->new;
     $s->add($ssh->{session}{sock});
     $s->add(\*STDIN) unless $sent_stdin;
@@ -322,8 +325,8 @@ sub _start_interactive {
         }
 
         while (my $packet = Net::SSH::Perl::Packet->read_poll($ssh)) {
-            if (my $code = $h->{ $packet->type }) {
-                $code->($ssh, $packet);
+            if (my $r = $ssh->handler_for($packet->type)) {
+                $r->{code}->($ssh, $packet, @{ $r->{extra} });
             }
             else {
                 $ssh->debug(sprintf

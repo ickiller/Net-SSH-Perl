@@ -1,3 +1,5 @@
+# $Id: AuthMgr.pm,v 1.3 2001/06/05 00:55:39 btrott Exp $
+
 package Net::SSH::Perl::AuthMgr;
 use strict;
 

@@ -1,4 +1,4 @@
-# $Id: Channel.pm,v 1.10 2001/05/31 09:04:10 btrott Exp $
+# $Id: Channel.pm,v 1.11 2001/06/06 05:07:37 btrott Exp $
 
 package Net::SSH::Perl::Channel;
 use strict;
@@ -114,8 +114,8 @@ sub process_buffers {
     my %fd = (output => $c->{wfd}, extended => $c->{efd});
     for my $buf (keys %fd) {
         if ($fd{$buf} && grep { $fd{$buf} == $_ } @$wready) {
-            if (my $sub = $c->{handlers}{"_${buf}_buffer"}) {
-                $sub->( $c, $c->{$buf} );
+            if (my $r = $c->{handlers}{"_${buf}_buffer"}) {
+                $r->{code}->( $c, $c->{$buf}, @{ $r->{extra} } );
             }
             else {
                 #warn "No handler for '$buf' buffer set up";
@@ -250,8 +250,8 @@ sub send_eof {
 
 sub register_handler {
     my $c = shift;
-    my($type, $sub) = @_;
-    $c->{handlers}{$type} = $sub;
+    my($type, $sub, @extra) = @_;
+    $c->{handlers}{$type} = { code => $sub, extra => \@extra };
 }
 
 1;
