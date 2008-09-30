@@ -1,0 +1,96 @@
+This file contains message digests of all files listed in MANIFEST,
+signed via the Module::Signature module, version 0.55.
+
+To verify the content in this distribution, first make sure you have
+Module::Signature installed, then type:
+
+    % cpansign -v
+
+It will check each file's integrity, as well as the signature's
+validity.  If "==> Signature verified OK! <==" is not displayed,
+the distribution may already have been compromised, and you should
+not run its Makefile.PL or Build.PL.
+
+-----BEGIN PGP SIGNED MESSAGE-----
+Hash: RIPEMD160
+
+SHA1 158261ccf1bbe64f67fb8830c3cda20b68294e7f Changes
+SHA1 f235ba4160673bcb7c9d58c2f09dbc7fc0efadea LICENSE
+SHA1 ee6dca84aa295359a89e5970bf6f37b4a816806f MANIFEST
+SHA1 ae632432280c360f5f546337922ca418eb8fcdd6 MANIFEST.SKIP
+SHA1 b429cfc4a2bd79dfeed3562db8eabccf2c29ed40 META.yml
+SHA1 8b7c52e49bb6b8115496063ec40b6f088dcedae6 Makefile.PL
+SHA1 b14359d8b0ebcb73d6143504e304efe36e6093ab README
+SHA1 ca4a01e14284c7a3efa45229e3ba0877ade60285 ToDo
+SHA1 e7166a6d87921e680deb4cbf957e83609066f6c9 eg/cmd.pl
+SHA1 02bc5d589eb15f36d6a971440f9636184f7a0279 eg/pscp
+SHA1 44ce715b8029f44123388bbc0fe50cea4334dc79 eg/pssh
+SHA1 3a7ecc57b316a02a72f8f56602b6d59aa4a4c2ce eg/pssh-keygen
+SHA1 c36af8adc7bcc9ccbef3beed15723a4a0e8db15a eg/remoteinteract.pl
+SHA1 7ff227ceb0c28c8f98b5772072eb6bf908f96555 eg/remoteinteract2.pl
+SHA1 bf6bced29433d5411bdb8586e1b542585013088e lib/Net/SSH/Perl.pm
+SHA1 474e11f5c18f2882bc5f17487bba8dc49dfb3020 lib/Net/SSH/Perl/Agent.pm
+SHA1 239747866b74368e032b4a50719101b5da58ee32 lib/Net/SSH/Perl/Auth.pm
+SHA1 2587036da2cddb5278e84db1cc10d2d2c2cd1029 lib/Net/SSH/Perl/Auth/ChallengeResponse.pm
+SHA1 cafed1f331ff6f79a944f913bf6e21674f398a3c lib/Net/SSH/Perl/Auth/KeyboardInt.pm
+SHA1 ee571bbbb788840d2aff0f68e65c6cae506fdf02 lib/Net/SSH/Perl/Auth/Password.pm
+SHA1 b91074fad6cb269a61316215b11eb1af7a3ba60c lib/Net/SSH/Perl/Auth/PublicKey.pm
+SHA1 9dfc915abea7a147d7df82fdbf344f354b56b49e lib/Net/SSH/Perl/Auth/RSA.pm
+SHA1 e60942015ad9970cf92d7c684acbec2f2860f9bc lib/Net/SSH/Perl/Auth/Rhosts.pm
+SHA1 912c68eed12cf2dcda1d5b1ba7b85ff1b7d15039 lib/Net/SSH/Perl/Auth/Rhosts_RSA.pm
+SHA1 c9cc210a77a4a4bed28bd575dd9e91411ab4e645 lib/Net/SSH/Perl/AuthMgr.pm
+SHA1 1a8887c70d49fc05a3bb01a1a9de0412b3fdb23f lib/Net/SSH/Perl/Buffer.pm
+SHA1 508688d44d85f4a60dbfa7d377377af606b0a77b lib/Net/SSH/Perl/Channel.pm
+SHA1 aca4ae87e4af57f216c3e5407451f67b2feb2c65 lib/Net/SSH/Perl/ChannelMgr.pm
+SHA1 6749a775ed13d9a2f20d763ee7b5b2a1a84e35f9 lib/Net/SSH/Perl/Cipher.pm
+SHA1 7faa14341ebe633f2ab89e5149012230492038b9 lib/Net/SSH/Perl/Cipher/Blowfish.pm
+SHA1 8ae4459d5acd1666979874be8b284d593d838873 lib/Net/SSH/Perl/Cipher/CBC.pm
+SHA1 3146166a26fac75704b77af5331cf0e3c109f743 lib/Net/SSH/Perl/Cipher/CFB.pm
+SHA1 79e639d97155d933917c908cefc452c1816c93a2 lib/Net/SSH/Perl/Cipher/DES.pm
+SHA1 e8032085b2cd8cdd518241f39eac9ba56b89dcae lib/Net/SSH/Perl/Cipher/DES3.pm
+SHA1 f9f39ddf40ec8577207a98e10494fc8baea249c6 lib/Net/SSH/Perl/Cipher/IDEA.pm
+SHA1 0479eae6ae99108e46cc859c2f053845ace7ab7d lib/Net/SSH/Perl/Cipher/RC4.pm
+SHA1 3df4c4dda730c0114f23d80b30a37b33ccefd40c lib/Net/SSH/Perl/Comp.pm
+SHA1 887099a2c07f6698f16e9ab18e1b1070f562f6fb lib/Net/SSH/Perl/Comp/Zlib.pm
+SHA1 d29d82a6e1b643a9b29a26792a465969b4112eb8 lib/Net/SSH/Perl/Config.pm
+SHA1 6a2b81edabdafeddcea1ada670260d1c79a4c617 lib/Net/SSH/Perl/Constants.pm
+SHA1 921a224def784e988c01395b2634bcb9bdd2cbd9 lib/Net/SSH/Perl/Handle.pm
+SHA1 008d3ebd3a2e5b2ff5a622bba6b3f2286a587948 lib/Net/SSH/Perl/Handle/SSH1.pm
+SHA1 0708c074a0985b4100714c1a03afecc5b345bfb1 lib/Net/SSH/Perl/Handle/SSH2.pm
+SHA1 7df935c80296f444a6012d70441a84da3de58f15 lib/Net/SSH/Perl/Kex.pm
+SHA1 b0eb62d3156f9f4bc40a82a4fbc4936a25496f66 lib/Net/SSH/Perl/Kex/DH1.pm
+SHA1 143edebd27798c3b259344293ee07c1da99b7f1e lib/Net/SSH/Perl/Key.pm
+SHA1 b56ffa1f6522abdcef6ad4d2bbc6dce1977dea7a lib/Net/SSH/Perl/Key/DSA.pm
+SHA1 f90b3dfd9dbf704217c2f01245c5d2bc0efcf2ed lib/Net/SSH/Perl/Key/RSA.pm
+SHA1 339c1654eae8ef09addf08becce50725d7507bc3 lib/Net/SSH/Perl/Key/RSA1.pm
+SHA1 cbe59bfc4779df92f813b34066c7cf0c8c68e60c lib/Net/SSH/Perl/Mac.pm
+SHA1 92256bde0841073935fc309e61345cb8518691e5 lib/Net/SSH/Perl/Packet.pm
+SHA1 f6f1392d054cb170014e63c5b5972f4bf0a3fb01 lib/Net/SSH/Perl/SSH1.pm
+SHA1 f43d772edfae63f54e448c565b2c399f28a33833 lib/Net/SSH/Perl/SSH2.pm
+SHA1 9816d81a59c85f28a847eb9810b97cd2db16c2c6 lib/Net/SSH/Perl/Subsystem/Client.pm
+SHA1 e620006f29008aeae924d52d3ceda79c00eb1362 lib/Net/SSH/Perl/Subsystem/Server.pm
+SHA1 e5ad561ac97afdb5280ee74772d4dbeca8a978a1 lib/Net/SSH/Perl/Util.pm
+SHA1 b787a45c249a5c9d9cb374aee6c1508cc1dca2d9 lib/Net/SSH/Perl/Util/Authfile.pm
+SHA1 e4c94e380406371f4e4689da07441831e158f8cb lib/Net/SSH/Perl/Util/Hosts.pm
+SHA1 09c3dde292913a7b89815be37896005e1f763a2c lib/Net/SSH/Perl/Util/RSA.pm
+SHA1 84b57f82417aa8d2a78713637b4746caeffe9fae lib/Net/SSH/Perl/Util/SSH1MP.pm
+SHA1 b81de2c967130aaf9657c5f38a65204e5a5429c3 lib/Net/SSH/Perl/Util/SSH1Misc.pm
+SHA1 16adf5e6838de6c1ab647bd9d715c535b70d2df7 lib/Net/SSH/Perl/Util/SSH2MP.pm
+SHA1 8dc75a7028f51dc1ceb5a9d4019746d2b2be3839 lib/Net/SSH/Perl/Util/Term.pm
+SHA1 93aa7e8cae0a361d1e6163dea0281ebff41f3c5f t/00-signature.t
+SHA1 70b48531ff00d0078a48c972c866c101f00388e8 t/01-compile.t
+SHA1 31aac38f31020bb20053acbe5b71d3f1ccd3a667 t/02-buffer.t
+SHA1 08ec1a8bf606d65a3ebadddaf93f792ae5e4c440 t/03-packet.t
+SHA1 9d532533d693ea2afcaf125befc577c49bf9cdba t/04-config.t
+SHA1 8e02b87377a55d46a0b700786ec7b54a63e01c69 t/05-cipher.t
+SHA1 50ccd4090cc5537a5c5ea6f2ca04d2aa9be88671 t/06-auth.t
+SHA1 fa60acea199894aa2017c43d9ecc906d92f2486a t/06-circular.t
+SHA1 9a32e630c87d1cc3ceaf2b5585519b55d12b79d3 t/config
+SHA1 885358760910acc3898301c9af18cd634ddd81a8 t/psshd
+SHA1 95062ce923662dd23b06fc955f67e5a1e023325f t/test-common.pl
+-----BEGIN PGP SIGNATURE-----
+
+iEYEAREDAAYFAkjiqQsACgkQvJuQZxSWSsiZzwCfeSlhVAaXuJy8r4ND/E67idzO
+gnEAoJA2L1mv4+bQhwMYIUf/nzyVV1gM
+=V5Xx
+-----END PGP SIGNATURE-----

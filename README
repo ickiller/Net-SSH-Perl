@@ -39,9 +39,9 @@ your CPAN shell is set up, you should just be able to do
     % perl -MCPAN -e 'install Net::SSH::Perl'
 
 If you don't like that, you can download the distribution; the
-latest version on CPAN can be found in
+latest version on CPAN can be found at
 
-	ftp://ftp.cpan.org/pub/CPAN/authors/id/D/DB/DBROBINS/
+	http://search.cpan.org/dist/Net-SSH-Perl/
 
 Download it, unpack it, then build it as per the usual:
 
