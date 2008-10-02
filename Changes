@@ -184,7 +184,7 @@ Revision history for Net::SSH::Perl
       context and state during authentication negotiation and
       setup, and dispatches to appropriate functions based on
       packet types.
-    - KeyBoardInt auth now uses new AuthMgr::register_handler
+    - KeyboardInt auth now uses new AuthMgr::register_handler
       method.
     - pssh-keygen now changes permissions of private key file
       to 0600 on key generation.

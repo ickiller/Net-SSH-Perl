@@ -1,4 +1,4 @@
-# $Id: Server.pm,v 1.3 2001/07/11 21:57:35 btrott Exp $
+# $Id: Server.pm,v 1.5 2008/10/02 20:46:17 turnstep Exp $
 
 package Net::SSH::Perl::Subsystem::Server;
 use strict;
@@ -27,7 +27,7 @@ sub init {
 
     if (my $log = $param{Log}) {
         my $fh = $ss->{log_fh} = gensym;
-        open $fh, ">>$log" or die "Can't open logfile $log: $!";
+        open $fh, '>>', $log or die "Can't open logfile $log: $!";
         select((select($fh), $|=1)[0]);
     }
 
@@ -105,7 +105,7 @@ sub _dup {
 
 =head1 NAME
 
-Net::SSH::Perl::Subsystem::Server - Server infrastructure for SSH subsytems
+Net::SSH::Perl::Subsystem::Server - Server infrastructure for SSH subsystems
 
 =head1 SYNOPSIS
 

@@ -70,7 +70,12 @@ t/04-config.t
 t/05-cipher.t
 t/06-auth.t
 t/06-circular.t
+t/99-perlcritic.t
+t/99-pod.t
+t/99-spellcheck.t
+t/99-yaml.t
 t/config
 t/psshd
 t/test-common.pl
 ToDo
+.perlcriticrc

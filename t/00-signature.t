@@ -1,4 +1,4 @@
-#!perl
+#!/usr/bin/perl
 
 ## Test that our SIGNATURE file is valid - requires TEST_SIGNATURE env
 

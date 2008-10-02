@@ -1,4 +1,4 @@
-# $Id: Makefile.PL,v 1.29 2008/09/24 19:21:20 turnstep Exp $
+# $Id: Makefile.PL,v 1.30 2008/10/02 18:53:25 turnstep Exp $
 
 use strict;
 use 5.006;

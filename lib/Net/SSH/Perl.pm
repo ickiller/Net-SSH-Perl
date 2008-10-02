@@ -1,4 +1,4 @@
-# $Id: Perl.pm,v 1.120 2008/09/25 22:43:57 turnstep Exp $
+# $Id: Perl.pm,v 1.121 2008/10/02 20:46:17 turnstep Exp $
 
 package Net::SSH::Perl;
 use strict;
@@ -22,7 +22,7 @@ eval {
     $HOSTNAME = hostname();
 };
 
-$VERSION = '1.30_1';
+$VERSION = '1.31';
 
 sub VERSION { $VERSION }
 
@@ -219,7 +219,7 @@ sub _create_socket {
     my $ssh = shift;
     my $sock = gensym;
 
-	my ($p,$end,$delta) = (0,1,1);	# normally we use whatever port we can get
+	my ($p,$end,$delta) = (0,1,1); # normally we use whatever port we can get
    	   ($p,$end,$delta) = (1023,512,-1) if $ssh->{config}->get('privileged');
 
 	# allow an explicit bind address
@@ -233,7 +233,7 @@ sub _create_socket {
             croak "Net::SSH: Can't create socket: $!";
         last if not $p or bind($sock, sockaddr_in($p,$addr));
         if ($! =~ /Address already in use/i) {
-            close($sock);
+            close($sock) or warn qq{Could not close socket: $!\n};
             next;
         }
         croak "Net::SSH: Can't bind socket to port $p: $!";

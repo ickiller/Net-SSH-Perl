@@ -1,12 +1,15 @@
+#!/usr/bin/perl
+
 use strict;
+use warnings;
 
 use Net::SSH::Perl;
 
 use Test::More;
 BEGIN {
 	  plan skip_all => 'Test not enabled yet';
-	  plan tests => 4
-	  };
+	  plan tests => 4;
+	  }
 
 use vars qw( $PORT $KNOWN_HOSTS $IDENTITY $PSSHD $PID_FILE );
 BEGIN { unshift @INC, 't/' }
@@ -43,7 +46,7 @@ for my $a (@auth) {
         identity_files => [ $IDENTITY ]);
     $ssh->login('dummy', 'dummy');
     my($out) = $ssh->cmd(qq( echo -n "$TEST_PHRASE" ));
-    ok($out eq $TEST_PHRASE);
+    ok($out eq $TEST_PHRASE, 'Test passed');
 }
 
 kill_psshd($PID_FILE);
@@ -74,9 +77,9 @@ sub startup_psshd {
 
 sub kill_psshd {
     my $pid_file = shift;
-    local *PID;
-    open PID, $pid_file or warn("Can't open $pid_file: $!"), return;
-    chomp(my $pid = <PID>);
+    open my $fh, '<', $pid_file or warn("Can't open $pid_file: $!"), return;
+    chomp(my $pid = <$fh>);
+	close $fh or warn qq{Could not close "$pid_file": $!\n};
     warn "Killing psshd on pid $pid.\n" if $DEBUG;
     kill 15, $pid;
 }

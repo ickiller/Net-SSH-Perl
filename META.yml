@@ -1,6 +1,6 @@
 --- #YAML:1.0
 name                    : Net-SSH-Perl
-version                 : 1.30_1
+version                 : 1.31
 abstract                : Perl client interface to SSH
 author:              
   - David Robins <dbrobins@cpan.org>
@@ -10,7 +10,7 @@ distribution_type       : module
 dynamic_config          : 1
 
 requires:     
-  Convert:  :PEM        : 0.05
+  Convert::PEM          : 0.05
   Crypt::DH             : 0.01
   Crypt::DSA            : 0.11
   Crypt::IDEA           : 0
@@ -42,4 +42,4 @@ meta-spec:
   version               : 1.4
   url                   : http://module-build.sourceforge.net/META-spec-v1.4.html
 
-generated_by:        emacs
+generated_by            : emacs
