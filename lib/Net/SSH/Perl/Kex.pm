@@ -1,4 +1,4 @@
-# $Id: Kex.pm,v 1.23 2009/01/26 01:00:25 turnstep Exp $
+# $Id: Kex.pm,v 1.24 2009/02/02 01:18:27 turnstep Exp $
 
 package Net::SSH::Perl::Kex;
 use strict;
